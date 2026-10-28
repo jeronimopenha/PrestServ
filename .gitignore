@@ -224,7 +224,13 @@ __marimo__/
 __pycache__/
 *.pyc
 
-
+# Bancos de dados e arquivos auxiliares
+dados/
+backups/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
 
 # Arquivos locais
 .env
