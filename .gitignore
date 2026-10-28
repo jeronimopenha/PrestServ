@@ -218,3 +218,25 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Ambiente Python
+.venv/
+__pycache__/
+*.pyc
+
+# Bancos de dados e arquivos auxiliares
+dados/
+backups/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Arquivos locais
+.env
+.streamlit/secrets.toml
+
+# Arquivos gerados
+dist/
+build/
+*.spec
