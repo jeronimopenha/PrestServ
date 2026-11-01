@@ -1,6 +1,11 @@
-# Manual do administrador
+---
+title: "Manual do administrador"
+subtitle: "PrestServ 1.0 — Cadastros, usuários, relatórios e dados"
+author: "Jeronimo Costa Penha"
+date: "Outubro de 2026"
+lang: pt-BR
+---
 
-**PrestServ 1.0 - cadastros, usuários, relatórios e dados**
 
 ## 1. Responsabilidades do administrador
 

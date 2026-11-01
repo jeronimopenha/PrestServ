@@ -1,6 +1,10 @@
-# Manual do porteiro
-
-**PrestServ 1.0 - operação diária**
+---
+title: "Manual do porteiro"
+subtitle: "PrestServ 1.0 - operação diária"
+author: "Jeronimo Costa Penha"
+date: "Outubro de 2026"
+lang: pt-BR
+---
 
 ## 1. Entrar no sistema
 

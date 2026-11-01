@@ -1,6 +1,12 @@
-# Instalação e manutenção técnica
+---
+title: "Instalação e manutenção técnica"
+subtitle: "PrestServ 1.0 - orientações para o responsável técnico"
+author: "Jeronimo Costa Penha"
+date: "Outubro de 2026"
+lang: pt-BR
+---
 
-**PrestServ 1.0 - orientações para o responsável técnico**
+
 
 ## 1. Arquitetura resumida
 

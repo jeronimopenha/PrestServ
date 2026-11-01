@@ -1,11 +1,12 @@
-# Manual completo do PrestServ
-
-**Versão 1.0 - documentação para uso e administração**  
-**Desenvolvido por Jeronimo Costa Penha**
-
-Este manual reúne a apresentação do sistema, as orientações para o porteiro, as funções administrativas e os cuidados de instalação e manutenção.
-
 ---
+title: "Manual completo do PrestServ"
+subtitle: "Versão 1.0 - documentação para uso e administração"
+author: "Jeronimo Costa Penha"
+date: "Outubro de 2026"
+lang: pt-BR
+---
+
+
 
 
 ## Apresentação do PrestServ

@@ -1,8 +1,11 @@
-# Apresentação do PrestServ
+---
+title: "Apresentação do PrestServ"
+subtitle: "Finalidade: registro e acompanhamento de atendimentos sociais"
+author: "Jeronimo Costa Penha"
+date: "Outubro de 2026"
+lang: pt-BR
+---
 
-**Versão de referência:** 1.0  
-**Desenvolvimento:** Jeronimo Costa Penha  
-**Finalidade:** registro e acompanhamento de atendimentos sociais
 
 ## 1. O que é o PrestServ
 
