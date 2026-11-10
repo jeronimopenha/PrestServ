@@ -35,6 +35,8 @@ def tela_presencas():
     st.metric("Presenças na data", total_presencas(data))
 
     st.divider()
+    st.divider()
+    st.divider()
 
     # Seleção da pessoa
     pessoas = listar_pessoas()
