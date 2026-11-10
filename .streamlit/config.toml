@@ -1,0 +1,17 @@
+[theme]
+font = "sans-serif"
+headingFont = "sans-serif"
+baseFontSize = 16
+baseFontWeight = 400
+
+headingFontSizes = [
+    "2rem",
+    "1.5rem",
+    "1.25rem",
+    "1.1rem",
+    "1rem",
+    "0.9rem"
+]
+
+metricValueFontSize = "2rem"
+metricValueFontWeight = 600

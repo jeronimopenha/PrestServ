@@ -16,6 +16,41 @@ from consultas_relatorios import (
 from pdf_relatorios import gerar_pdf
 
 
+COLUNAS_RELATORIO = {
+    "id": "ID",
+    "pessoa_id": "ID da pessoa",
+    "presenca_id": "ID da presença",
+    "pessoa": "Pessoa",
+    "nome": "Nome",
+    "data": "Data",
+    "servico": "Serviço",
+    "servicos": "Serviços",
+    "quantidade": "Quantidade",
+    "quantidade_servicos": "Qtd. de serviços",
+    "presencas": "Presenças",
+    "pessoas_distintas": "Pessoas distintas",
+    "primeira_no_periodo": "Primeira presença",
+    "ultima_no_periodo": "Última presença",
+    "registrado_em": "Registrado em",
+    "ultima_presenca": "Última presença",
+    "dias_sem_comparecer": "Dias sem comparecer",
+    "mes": "Mês",
+    "documento": "Documento",
+    "telefone": "Telefone",
+    "fotografia": "Fotografia",
+}
+
+
+def tabela_relatorio(df):
+    exibicao = df.rename(columns=COLUNAS_RELATORIO)
+
+    st.dataframe(
+        exibicao,
+        hide_index=True,
+        use_container_width=True,
+    )
+
+
 def inicio_mes(d):
     return d.replace(day=1)
 
@@ -108,7 +143,7 @@ def tela_relatorios():
 
         if not por_servico.empty:
             st.bar_chart(por_servico.set_index("servico")["quantidade"])
-            st.dataframe(por_servico, hide_index=True, use_container_width=True)
+            tabela_relatorio(por_servico)
         else:
             st.info("Sem serviços registrados no período.")
 
@@ -122,16 +157,16 @@ def tela_relatorios():
         st.write("### Evolução mensal")
 
         if not mensal.empty:
-            st.dataframe(mensal, hide_index=True, use_container_width=True)
+            tabela_relatorio(mensal)
 
     with abas[1]:
         st.write("### Frequência por pessoa")
-        st.dataframe(frequencia, hide_index=True, use_container_width=True)
+        tabela_relatorio(frequencia)
         botao_csv("Exportar frequência (CSV)", frequencia, "prestserv_frequencia.csv")
 
     with abas[2]:
         st.write("### Histórico de atendimentos")
-        st.dataframe(detalhado, hide_index=True, use_container_width=True)
+        tabela_relatorio(detalhado)
         botao_csv("Exportar histórico (CSV)", detalhado, "prestserv_historico.csv")
 
     with abas[3]:
@@ -146,7 +181,7 @@ def tela_relatorios():
 
         ausentes = pessoas_ausentes(fim_sql, dias)
 
-        st.dataframe(ausentes, hide_index=True, use_container_width=True)
+        tabela_relatorio(ausentes)
 
         botao_csv("Exportar ausências (CSV)", ausentes, "prestserv_ausencias.csv")
 
@@ -155,7 +190,7 @@ def tela_relatorios():
 
         qualidade = qualidade_cadastros()
 
-        st.dataframe(qualidade, hide_index=True, use_container_width=True)
+        tabela_relatorio(qualidade)
 
         botao_csv("Exportar cadastros (CSV)", qualidade, "prestserv_cadastros.csv")
 

@@ -52,15 +52,20 @@ def gerar_pdf(titulo, inicio, fim, indicadores, tabelas):
     )
     estilos.add(
         ParagraphStyle(
-            name="CelulaPrestServ", parent=estilos["Normal"], fontSize=7, leading=9
+            name="CelulaPrestServ",
+            parent=estilos["Normal"],
+            fontSize=8,
+            leading=10,
         )
     )
     estilos.add(
         ParagraphStyle(
             name="CabecalhoPrestServ",
             parent=estilos["CelulaPrestServ"],
-            textColor=colors.white,
             fontName="Helvetica-Bold",
+            fontSize=8,
+            leading=10,
+            textColor=colors.white,
         )
     )
 
@@ -143,13 +148,8 @@ def gerar_pdf(titulo, inicio, fim, indicadores, tabelas):
             TableStyle(
                 [
                     ("BACKGROUND", (0, 0), (-1, 0), COR_PRINCIPAL),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), COR_PRINCIPAL),
-                    (
-                        "ROWBACKGROUNDS",
-                        (0, 1),
-                        (-1, -1),
-                        [colors.white, colors.HexColor("#F0F3F7")],
-                    ),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, COR_ALTERNADA]),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
                     ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
