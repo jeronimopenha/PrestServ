@@ -1,6 +1,7 @@
 import sqlite3
 
 from database import DB_PATH
+from estrutura_v110 import criar_estrutura_logs
 
 
 def inicializar_banco():
@@ -83,6 +84,7 @@ def inicializar_banco():
             INSERT OR IGNORE INTO servicos(nome)
             VALUES ('Jantar'), ('Banho'), ('Roupas');
         """)
+        criar_estrutura_logs(conexao)
 
 
 if __name__ == "__main__":
