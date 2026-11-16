@@ -678,3 +678,109 @@ def excluir_pessoa(pessoa_id, ator_id):
             entidade="pessoas",
             entidade_id=pessoa_id,
         )
+
+
+def listar_logs(
+    ator_id,
+    limite=200,
+    inicio=None,
+    fim=None,
+    operador=None,
+    acao=None,
+    resultado=None,
+):
+    """Consulta os logs com filtros, apenas para administradores."""
+
+    if type(limite) is not int or not 1 <= limite <= 1000:
+        raise ValueError("Limite de registros inválido.")
+
+    with conectar() as conexao:
+        # Verifica a permissão do operador.
+        ator = conexao.execute(
+            """
+            SELECT id
+            FROM usuarios
+            WHERE id = ?
+              AND perfil = 'admin'
+              AND ativo = 1
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None:
+            raise PermissionError("Somente administradores podem consultar os logs.")
+
+        filtros = []
+        parametros = []
+
+        if inicio:
+            filtros.append("criado_em >= ?")
+            parametros.append(inicio)
+
+        if fim:
+            filtros.append("criado_em < ?")
+            parametros.append(fim)
+
+        if operador:
+            filtros.append("usuario_login LIKE ? COLLATE NOCASE")
+            parametros.append(f"%{operador.strip()}%")
+
+        if acao:
+            filtros.append("acao = ?")
+            parametros.append(acao)
+
+        if resultado:
+            filtros.append("resultado = ?")
+            parametros.append(resultado)
+
+        where = "WHERE " + " AND ".join(filtros) if filtros else ""
+
+        sql = f"""
+            SELECT
+                id,
+                criado_em,
+                usuario_id,
+                usuario_login,
+                acao,
+                entidade,
+                entidade_id,
+                resultado,
+                detalhes_json
+            FROM logs
+            {where}
+            ORDER BY id DESC
+            LIMIT ?
+        """
+
+        parametros.append(limite)
+
+        registros = conexao.execute(sql, parametros).fetchall()
+
+    return [dict(registro) for registro in registros]
+
+
+def listar_acoes_logs(ator_id):
+    """Lista as ações existentes nos logs."""
+
+    with conectar() as conexao:
+        ator = conexao.execute(
+            """
+            SELECT id
+            FROM usuarios
+            WHERE id = ?
+              AND perfil = 'admin'
+              AND ativo = 1
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None:
+            raise PermissionError("Somente administradores podem consultar os logs.")
+
+        registros = conexao.execute("""
+            SELECT DISTINCT acao
+            FROM logs
+            ORDER BY acao COLLATE NOCASE
+            """).fetchall()
+
+    return [registro["acao"] for registro in registros]

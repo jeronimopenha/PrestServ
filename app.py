@@ -17,6 +17,7 @@ from relatorios import tela_relatorios
 from inicializar_banco import inicializar_banco
 from tela_backups import tela_backups
 from estrutura_v110 import consultar_vinculos
+from tela_logs import tela_logs
 from common import BASIC_TITTLE, VERSAO, ANO
 
 st.set_page_config(page_title=BASIC_TITTLE, page_icon="🏠", layout="centered")
@@ -340,6 +341,7 @@ def main():
                 "Presenças",
                 "Cadastros",
                 "Relatórios",
+                "Logs do sistema",
                 "Backup e restauração",
                 "Administração",
             ],
@@ -351,6 +353,8 @@ def main():
             tela_cadastros()
         elif pagina == "Relatórios":
             tela_relatorios()
+        elif pagina == "Logs do sistema":
+            tela_logs()
         elif pagina == "Backup e restauração":
             tela_backups()
         else:
