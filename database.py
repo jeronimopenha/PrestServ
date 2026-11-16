@@ -784,3 +784,82 @@ def listar_acoes_logs(ator_id):
             """).fetchall()
 
     return [registro["acao"] for registro in registros]
+
+
+def excluir_logs(ids, ator_id):
+    """Exclui logs selecionados e registra a operação."""
+
+    if not isinstance(ids, (list, tuple, set)):
+        raise ValueError("Seleção de logs inválida.")
+
+    ids = sorted(set(ids))
+
+    if not ids:
+        raise ValueError("Nenhum log selecionado.")
+
+    if len(ids) > 500:
+        raise ValueError("Selecione no máximo 500 logs por operação.")
+
+    if any(type(id) is not int or id <= 0 for id in ids):
+        raise ValueError("Identificadores de logs inválidos.")
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Confere se o operador é administrador ativo.
+        ator = conexao.execute(
+            """
+            SELECT id, login
+            FROM usuarios
+            WHERE id = ?
+              AND perfil = 'admin'
+              AND ativo = 1
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None:
+            raise PermissionError("Somente administradores podem excluir logs.")
+
+        marcadores = ",".join("?" for _ in ids)
+
+        # Confere se todos os registros ainda existem.
+        encontrados = conexao.execute(
+            f"""
+            SELECT id
+            FROM logs
+            WHERE id IN ({marcadores})
+            """,
+            ids,
+        ).fetchall()
+
+        if len(encontrados) != len(ids):
+            raise ValueError(
+                "A seleção está desatualizada. " "Atualize a página e tente novamente."
+            )
+
+        # Exclui somente os logs selecionados.
+        cursor = conexao.execute(
+            f"""
+            DELETE FROM logs
+            WHERE id IN ({marcadores})
+            """,
+            ids,
+        )
+
+        quantidade = cursor.rowcount
+
+        # Registra a limpeza na mesma transação.
+        registrar_log(
+            conexao,
+            acao="excluir_logs",
+            usuario_id=ator["id"],
+            usuario_login=ator["login"],
+            entidade="logs",
+            detalhes={
+                "quantidade": quantidade,
+                "ids_excluidos": ids,
+            },
+        )
+
+    return quantidade

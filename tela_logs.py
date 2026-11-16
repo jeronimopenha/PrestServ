@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
-from database import listar_logs, listar_acoes_logs
+from database import listar_logs, listar_acoes_logs, excluir_logs
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 
@@ -135,11 +135,100 @@ def tela_logs():
 
     df = pd.DataFrame(dados)
 
-    st.dataframe(
+    # Reinicia a seleção quando os registros exibidos mudam.
+    assinatura = tuple(df["ID"].tolist())
+
+    if st.session_state.get("logs_assinatura") != assinatura:
+        st.session_state["logs_assinatura"] = assinatura
+        st.session_state["logs_editor_versao"] = (
+            st.session_state.get("logs_editor_versao", 0) + 1
+        )
+        st.session_state["logs_selecionar_todos"] = False
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("Selecionar todos", use_container_width=True):
+            st.session_state["logs_selecionar_todos"] = True
+            st.session_state["logs_editor_versao"] += 1
+
+    with c2:
+        if st.button("Limpar seleção", use_container_width=True):
+            st.session_state["logs_selecionar_todos"] = False
+            st.session_state["logs_editor_versao"] += 1
+
+    df.insert(
+        0,
+        "Selecionar",
+        st.session_state["logs_selecionar_todos"],
+    )
+
+    versao_editor = st.session_state["logs_editor_versao"]
+
+    tabela_editada = st.data_editor(
         df,
         hide_index=True,
         use_container_width=True,
+        disabled=[coluna for coluna in df.columns if coluna != "Selecionar"],
+        column_config={
+            "Selecionar": st.column_config.CheckboxColumn(
+                "Selecionar",
+                help="Marque os registros que deseja excluir.",
+                default=False,
+                required=True,
+            ),
+        },
+        key=f"editor_logs_{versao_editor}",
     )
+
+    ids_selecionados = [
+        int(id)
+        for id in tabela_editada.loc[tabela_editada["Selecionar"], "ID"].tolist()
+    ]
+
+    st.caption(
+        f"{len(ids_selecionados)} registro(s) selecionado(s). "
+        "Limite de 500 exclusões por operação."
+    )
+
+    st.write("### Excluir logs selecionados")
+
+    quantidade = len(ids_selecionados)
+    selecao_valida = 0 < quantidade <= 500
+
+    if quantidade > 500:
+        st.warning(
+            "É permitido excluir no máximo 500 registros "
+            "por operação. Reduza a seleção."
+        )
+
+    confirmar = st.checkbox(
+        "Confirmo que desejo excluir definitivamente " "os registros selecionados.",
+        disabled=not selecao_valida,
+        key=f"confirmar_exclusao_logs_{versao_editor}",
+    )
+
+    if st.button(
+        "Excluir selecionados",
+        disabled=not selecao_valida or not confirmar,
+        type="secondary",
+        use_container_width=True,
+    ):
+        try:
+            total = excluir_logs(
+                ids_selecionados,
+                ator_id=ator["id"],
+            )
+
+            st.session_state["logs_editor_versao"] += 1
+            st.session_state["logs_selecionar_todos"] = False
+            st.session_state.pop("logs_assinatura", None)
+
+            st.toast(f"{total} registro(s) excluído(s) com sucesso!")
+            st.rerun()
+
+        except (ValueError, PermissionError) as erro:
+            st.error(str(erro))
 
     st.caption("Datas e horários apresentados no fuso de Brasília.")
 
