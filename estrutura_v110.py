@@ -5,9 +5,9 @@ Este módulo NÃO apaga nem desativa cadastros, NÃO escreve logs operacionais
 """
 
 import sqlite3
-from pathlib import Path
+from database import DB_PATH
 
-CAMINHO_BANCO = Path(__file__).resolve().parent / "dados" / "prestserv.db"
+CAMINHO_BANCO = DB_PATH
 
 # Relações inferidas por convenção, mesmo sem FOREIGN KEY declarada.
 # Os logs são excluídos intencionalmente: guardam uma cópia do operador,
@@ -35,14 +35,18 @@ def _tabelas(conexao: sqlite3.Connection) -> list[str]:
 
 def _colunas(conexao: sqlite3.Connection, tabela: str) -> list[str]:
     return [
-        linha[1] for linha in conexao.execute(
-            f"PRAGMA table_info({_identificador(tabela)})"
-        )
+        linha[1]
+        for linha in conexao.execute(f"PRAGMA table_info({_identificador(tabela)})")
     ]
 
 
 def criar_estrutura_logs(conexao: sqlite3.Connection) -> None:
     """Cria somente o que não existe; mantém dados já cadastrados."""
+    versao = conexao.execute("PRAGMA user_version").fetchone()[0]
+
+    if versao > 1:
+        raise RuntimeError(f"Versão do esquema ({versao}) superior à suportada (1).")
+
     with conexao:
         conexao.execute("""
             CREATE TABLE IF NOT EXISTS logs (
@@ -59,8 +63,15 @@ def criar_estrutura_logs(conexao: sqlite3.Connection) -> None:
             )
         """)
         esperadas = {
-            "id", "criado_em", "usuario_id", "usuario_login", "acao",
-            "entidade", "entidade_id", "resultado", "detalhes_json",
+            "id",
+            "criado_em",
+            "usuario_id",
+            "usuario_login",
+            "acao",
+            "entidade",
+            "entidade_id",
+            "resultado",
+            "detalhes_json",
         }
         atuais = set(_colunas(conexao, "logs"))
         if not esperadas.issubset(atuais):
@@ -69,21 +80,18 @@ def criar_estrutura_logs(conexao: sqlite3.Connection) -> None:
                 "Não vou alterá-la automaticamente."
             )
         conexao.execute(
-            "CREATE INDEX IF NOT EXISTS idx_logs_criado_em "
-            "ON logs(criado_em)"
+            "CREATE INDEX IF NOT EXISTS idx_logs_criado_em " "ON logs(criado_em)"
         )
         conexao.execute(
-            "CREATE INDEX IF NOT EXISTS idx_logs_usuario_id "
-            "ON logs(usuario_id)"
+            "CREATE INDEX IF NOT EXISTS idx_logs_usuario_id " "ON logs(usuario_id)"
         )
-        conexao.execute(
-            "CREATE INDEX IF NOT EXISTS idx_logs_acao "
-            "ON logs(acao)"
-        )
+        conexao.execute("CREATE INDEX IF NOT EXISTS idx_logs_acao " "ON logs(acao)")
         conexao.execute(
             "CREATE INDEX IF NOT EXISTS idx_logs_entidade "
             "ON logs(entidade, entidade_id)"
         )
+        if versao == 0:
+            conexao.execute("PRAGMA user_version = 1")
 
 
 def consultar_vinculos(
@@ -119,9 +127,7 @@ def consultar_vinculos(
         colunas_existentes = set(_colunas(conexao, tabela))
         referencias = COLUNAS_PROVAVEIS[tabela_alvo] & colunas_existentes
 
-        for fk in conexao.execute(
-            f"PRAGMA foreign_key_list({_identificador(tabela)})"
-        ):
+        for fk in conexao.execute(f"PRAGMA foreign_key_list({_identificador(tabela)})"):
             # PRAGMA: id, seq, table, from, to, on_update, on_delete, match
             if fk[2] == tabela_alvo:
                 # Se a FK aponta para outro campo (ou é composta), a
