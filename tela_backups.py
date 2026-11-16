@@ -58,7 +58,7 @@ def tela_backups():
                 file_name=nome_arquivo,
                 mime="application/zip",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
             )
 
     with aba_restauracao:

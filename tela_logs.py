@@ -148,12 +148,12 @@ def tela_logs():
     c1, c2 = st.columns(2)
 
     with c1:
-        if st.button("Selecionar todos", use_container_width=True):
+        if st.button("Selecionar todos", width="stretch",):
             st.session_state["logs_selecionar_todos"] = True
             st.session_state["logs_editor_versao"] += 1
 
     with c2:
-        if st.button("Limpar seleção", use_container_width=True):
+        if st.button("Limpar seleção", width="stretch",):
             st.session_state["logs_selecionar_todos"] = False
             st.session_state["logs_editor_versao"] += 1
 
@@ -168,7 +168,7 @@ def tela_logs():
     tabela_editada = st.data_editor(
         df,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         disabled=[coluna for coluna in df.columns if coluna != "Selecionar"],
         column_config={
             "Selecionar": st.column_config.CheckboxColumn(
@@ -212,7 +212,7 @@ def tela_logs():
         "Excluir selecionados",
         disabled=not selecao_valida or not confirmar,
         type="secondary",
-        use_container_width=True,
+        width="stretch",
     ):
         try:
             total = excluir_logs(

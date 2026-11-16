@@ -47,7 +47,7 @@ def tabela_relatorio(df):
     st.dataframe(
         exibicao,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -70,7 +70,7 @@ def botao_csv(titulo, df, nome):
         data=df.to_csv(index=False, sep=";", encoding="utf-8-sig").encode("utf-8-sig"),
         file_name=nome,
         mime="text/csv",
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -226,5 +226,5 @@ def tela_relatorios():
         file_name=(f"prestserv_relatorio_{inicio_sql}_{fim_sql}.pdf"),
         mime="application/pdf",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     )

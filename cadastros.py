@@ -59,7 +59,7 @@ def novo_cadastro():
         )
 
         enviar = st.form_submit_button(
-            "Cadastrar pessoa", type="primary", use_container_width=True
+            "Cadastrar pessoa", type="primary", width="stretch",
         )
 
     if enviar:
@@ -155,7 +155,7 @@ def editar_cadastro():
         )
 
         salvar = st.form_submit_button(
-            "Salvar alterações", type="primary", use_container_width=True
+            "Salvar alterações", type="primary", width="stretch",
         )
 
     if salvar:

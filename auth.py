@@ -137,13 +137,6 @@ def listar_usuarios():
     return [dict(registro) for registro in registros]
 
 
-def alterar_status_usuario(usuario_id, ativo):
-    with conectar() as conexao:
-        conexao.execute(
-            "UPDATE usuarios SET ativo = ? WHERE id = ?", (int(ativo), usuario_id)
-        )
-
-
 def redefinir_senha(usuario_id, nova_senha, ator_id):
     senha_hash = gerar_hash(nova_senha)
 

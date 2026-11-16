@@ -71,7 +71,7 @@ def tela_login():
     with st.form("login"):
         login = st.text_input("Usuário")
         senha = st.text_input("Senha", type="password")
-        entrar = st.form_submit_button("Entrar", use_container_width=True)
+        entrar = st.form_submit_button("Entrar", width="stretch",)
 
     if entrar:
         usuario = autenticar(login, senha)
@@ -125,7 +125,7 @@ def painel_admin():
                     )
 
                     salvar = st.form_submit_button(
-                        "Salvar alterações", type="primary", use_container_width=True
+                        "Salvar alterações", type="primary", width="stretch",
                     )
 
                 if salvar:
@@ -180,7 +180,7 @@ def painel_admin():
                     )
 
                     redefinir = st.form_submit_button(
-                        "Redefinir senha", use_container_width=True
+                        "Redefinir senha", width="stretch",
                     )
 
                 if redefinir:
@@ -282,7 +282,7 @@ def painel_admin():
             perfil = st.selectbox("Perfil", ["porteiro", "admin"])
 
             salvar = st.form_submit_button(
-                "Cadastrar usuário", use_container_width=True
+                "Cadastrar usuário", width="stretch",
             )
 
         if salvar:
@@ -319,7 +319,7 @@ def main():
         st.write(f"**{usuario['nome']}**")
         st.caption(f"Perfil: {usuario['perfil']}")
 
-        if st.button("Sair", use_container_width=True):
+        if st.button("Sair", width="stretch",):
             with conectar() as conexao:
                 registrar_log(
                     conexao,

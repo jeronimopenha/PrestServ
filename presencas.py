@@ -126,7 +126,7 @@ def tela_presencas():
     if st.button(
         texto_botao,
         type="primary",
-        use_container_width=True,
+        width="stretch",
         disabled=not presenca and not selecionados,
     ):
         try:
