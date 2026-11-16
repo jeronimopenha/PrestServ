@@ -1,19 +1,15 @@
 ---
 title: "Manual completo do PrestServ"
-subtitle: "Versão 1.0 - documentação para uso e administração"
+subtitle: "Versão 1.1.0 — uso, administração e manutenção"
 author: "Jeronimo Costa Penha"
-date: "Outubro de 2026"
+date: "Novembro de 2026"
 lang: pt-BR
 ---
 
 
-
+\newpage
 
 ## Apresentação do PrestServ
-
-**Versão de referência:** 1.0  
-**Desenvolvimento:** Jeronimo Costa Penha  
-**Finalidade:** registro e acompanhamento de atendimentos sociais
 
 ### 1. O que é o PrestServ
 
@@ -29,6 +25,7 @@ O sistema foi concebido para uma operação simples, com poucos usuários, evita
 - **Atendimentos:** pessoa, data do atendimento e serviços recebidos.
 - **Usuários:** nome, login, perfil, situação ativa/inativa e senha armazenada em forma de hash.
 - **Relatórios:** indicadores, frequência, serviços prestados e histórico de atendimentos.
+- **Auditoria (V1.1.0):** data e hora das operações, identificação do operador, ação, resultado e detalhes quando disponíveis.
 
 Uma pessoa pode receber vários serviços no mesmo dia, mas terá **uma única presença por data**. Por exemplo, jantar e banho no mesmo dia correspondem a uma presença e dois serviços. Um atendimento sem serviços selecionados não é mantido no banco.
 
@@ -37,7 +34,7 @@ Uma pessoa pode receber vários serviços no mesmo dia, mas terá **uma única p
 | Perfil | Atividades principais |
 |:--|:--|
 | **Porteiro** | Localizar pessoa cadastrada, conferir identificação e registrar ou corrigir serviços na data selecionada. |
-| **Administrador** | Todas as atividades do porteiro, além de cadastro de pessoas, gestão de usuários, relatórios e operações administrativas disponíveis na instalação. |
+| **Administrador** | Todas as atividades do porteiro, além de cadastro de pessoas, gestão de usuários, relatórios, consulta de logs, backup e restauração. |
 
 A aplicação não disponibiliza cadastro público de pessoas nem acesso anônimo ao histórico.
 
@@ -69,17 +66,21 @@ O PrestServ é um instrumento administrativo, e não substitui políticas instit
 
 O banco SQLite padrão não exige senha para abrir o arquivo diretamente. Por isso, a proteção do computador, as permissões de acesso ao arquivo e o armazenamento seguro de backups são fundamentais.
 
-### 7. Créditos
+### 7. Auditoria e exclusão (V1.1.0)
+
+As operações relevantes são registradas para facilitar a identificação de alterações. Somente administradores podem consultar e excluir logs pela interface. A exclusão de pessoas e usuários é condicionada aos vínculos existentes; quando um cadastro possui histórico associado, a desativação permite preservá-lo.
+
+**Limite importante:** logs podem ser excluídos por administradores e não constituem trilha de auditoria imutável. Um backup restaurado não preserva automaticamente operações realizadas após a criação desse backup.
+
+### 8. Créditos
 
 **Desenvolvido por Jeronimo Costa Penha.**  
-PrestServ - documentação da versão 1.0.
+PrestServ - documentação da versão 1.1.0.
+
 
 \newpage
 
-
 ## Manual do porteiro
-
-**PrestServ 1.0 - operação diária**
 
 ### 1. Entrar no sistema
 
@@ -147,270 +148,341 @@ Uma pessoa desativada não aparece na lista de atendimento. A reativação depen
 
 **Posso cadastrar pessoas?** Não com o perfil de porteiro. Solicite o cadastro ao administrador.
 
-**Quem pode ver relatórios?** Na configuração prevista para a versão 1.0, o acesso à área de relatórios é administrativo.
+**Quem pode ver relatórios?** O acesso à área de relatórios é restrito ao administrador.
 
-### 8. Roteiro rápido para o posto de atendimento
+### 8. Registro das operações
+
+Na V1.1.0, o sistema registra operações relevantes, como entradas, saídas e alterações de atendimentos. A consulta dos logs é restrita ao administrador. Utilize sempre sua própria conta para que seja possível reconhecer o responsável por cada operação.
+
+### 9. Roteiro rápido para o posto de atendimento
 
 **Data correta → Pessoa correta → Conferir identificação → Marcar serviços → Salvar → Conferir confirmação.**
 
-\newpage
 
+\newpage
 
 ## Manual do administrador
 
-**PrestServ 1.0 - cadastros, usuários, relatórios e dados**
-
 ### 1. Responsabilidades do administrador
 
-O administrador organiza os cadastros e acessos, revisa registros quando necessário, consulta relatórios e mantém cópias de segurança dos dados. O uso dessa conta deve ser restrito às pessoas formalmente autorizadas.
+O administrador organiza os cadastros e acessos, revisa atendimentos, acompanha relatórios, consulta o histórico de operações e mantém cópias de segurança. O uso da conta administrativa deve ficar restrito às pessoas autorizadas.
 
 ### 2. Cadastro de pessoas
 
-Acesse **Cadastros**. A tela contém áreas para criar e consultar/editar registros.
+Acesse **Cadastros**, onde estão as áreas **Novo cadastro** e **Consultar / editar**.
 
-#### 2.1. Novo cadastro
+#### 2.1. Cadastrar
 
-1. Abra **Novo cadastro**.
-2. Informe obrigatoriamente o **nome**.
-3. Preencha, quando disponíveis, documento, telefone e contato de referência.
-4. Adicione fotografia opcional em formato aceito pelo sistema.
-5. Salve o cadastro e confira a confirmação.
+1. Abra **Novo cadastro** e informe obrigatoriamente o **nome**.
+2. Preencha, quando disponíveis, documento, telefone e contato de referência.
+3. Acrescente uma fotografia opcional, nos formatos aceitos pela interface.
+4. Salve e confira a confirmação.
 
-As imagens são convertidas para JPEG redimensionado antes do armazenamento no banco. A fotografia serve para auxiliar a identificação; não substitui a confirmação por outros meios quando necessária.
+As fotos são convertidas para JPEG e redimensionadas antes de serem armazenadas no banco. A imagem auxilia a identificação, mas não substitui a conferência de outros dados quando necessário.
 
-#### 2.2. Alterar cadastro
+#### 2.2. Editar, fotografar e desativar
 
-1. Abra **Consultar / editar**.
-2. Localize a pessoa por nome ou identificador.
-3. Revise os dados e salve as alterações.
-4. Se necessário, envie uma nova fotografia ou utilize a opção de remover fotografia mediante confirmação.
+1. Abra **Consultar / editar** e selecione a pessoa.
+2. Altere os dados necessários e salve.
+3. Se for o caso, substitua ou remova a fotografia, observando a confirmação exigida na interface.
+4. Use **Desativar pessoa** para impedir novos atendimentos sem perder o histórico; **Reativar pessoa** permite voltar a registrar atendimentos.
 
-#### 2.3. Desativar e reativar
+#### 2.3. Exclusão condicionada (V1.1.0)
 
-A desativação retira a pessoa das opções de novos atendimentos, mas **não apaga seu histórico**. Use-a quando apropriado e reative a pessoa se for necessário voltar a atendê-la. Evite criar cadastro duplicado.
+A exclusão definitiva só é disponibilizada quando não há relacionamentos que a impeçam. A verificação considera, entre outros, registros de **presença** e **fotografia**. Uma pessoa que possui apenas fotografia também não pode ser excluída enquanto a foto não for removida.
+
+- Se houver histórico de atendimentos, prefira **desativar**: o sistema preserva os registros anteriores.
+- Se a pessoa não tiver vínculos impeditivos, o administrador poderá solicitar a exclusão e confirmar a operação.
+- A verificação é realizada novamente ao excluir, para evitar inconsistências caso os dados tenham mudado.
+
+**Atenção:** exclusão é permanente. A existência de um log da operação não permite recuperar automaticamente o registro excluído.
 
 ### 3. Administração de usuários
 
-Na área **Administração**, o administrador pode criar contas e, conforme os controles disponíveis na versão instalada, editar nome, login, perfil, situação e redefinir senhas.
+Na área **Administração**, o administrador pode criar usuários, editar nome, login e perfil, ativar/desativar contas e redefinir senhas.
 
 | Campo | Boa prática |
 |:--|:--|
-| Nome | Usar identificação reconhecível do funcionário ou colaborador. |
-| Login | Manter identificador individual e único. |
-| Senha | Fornecer de modo reservado; o sistema armazena apenas o hash. |
-| Perfil | Conceder apenas as permissões necessárias. |
-| Situação | Desativar quem não precisa mais acessar; evitar apagar históricos. |
+| Nome | Identificação reconhecível do colaborador. |
+| Login | Identificador individual e único. |
+| Senha | Entregar reservadamente; o sistema armazena o hash, não a senha original. |
+| Perfil | Conceder apenas as permissões necessárias (`admin` ou `porteiro`). |
+| Situação | Desativar contas sem uso, preservando o histórico operacional. |
 
-Nunca use uma conta compartilhada se for importante identificar qual operador realizou um atendimento. Não é possível recuperar a senha original pelo hash; a solução é **redefini-la**.
+#### 3.1. Exclusão de usuários (V1.1.0)
+
+É possível excluir contas sem vínculos operacionais que impeçam a operação. O sistema aplica proteções adicionais:
+
+- Um administrador não pode excluir a própria conta.
+- Não é permitido excluir ou deixar indisponível o último administrador ativo.
+- O usuário precisa ter permissão administrativa ativa.
+- A exclusão exige confirmação.
+
+Os registros de auditoria guardam o login e o identificador do operador sem criar vínculo de chave estrangeira com a tabela de usuários. Por isso, **logs antigos, por si só, não bloqueiam a exclusão de uma conta**. Eles podem continuar mostrando o login de um usuário já removido.
+
+Não compartilhe contas: os logs dependem da identificação individual. Senhas esquecidas devem ser **redefinidas**, e não recuperadas a partir do hash.
 
 ### 4. Relatórios
 
-Acesse **Relatórios** e escolha o período. É possível usar atalhos para o mês, semestre e ano ou informar datas personalizadas.
+Acesse **Relatórios**, escolha o período (**Mês atual**, **Semestre atual**, **Ano atual** ou **Personalizado**) e, se necessário, selecione uma pessoa. As datas inicial e final integram o intervalo consultado.
 
-#### 4.1. Filtrar informações
+#### 4.1. Indicadores
 
-O filtro **Pessoa** permite selecionar uma pessoa específica ou todas as pessoas. O intervalo inclui as datas inicial e final.
-
-#### 4.2. Indicadores
-
-- **Pessoas distintas:** quantidade de pessoas atendidas no período, independentemente do número de visitas.
-- **Presenças:** quantidade de registros pessoa/data no período.
+- **Pessoas distintas:** pessoas diferentes atendidas no período.
+- **Presenças:** registros únicos de pessoa e data.
 - **Serviços prestados:** quantidade total de serviços associados às presenças.
-- **Dias com registros:** quantidade de datas com presenças.
-- **Média por dia registrado:** presenças divididas pelos dias com registros.
+- **Dias com registros:** quantidade de datas com ao menos uma presença.
+- **Média por dia registrado:** presenças divididas pela quantidade de dias registrados.
 
-#### 4.3. Relatórios disponíveis
+Por exemplo, três presenças e sete serviços representam **três dias de comparecimento** e **sete serviços prestados**, não sete visitas.
 
-- **Visão geral:** distribuição de serviços e evolução diária/mensal.
-- **Frequência:** número de presenças por pessoa e datas de primeira/última presença no intervalo.
-- **Histórico:** linhas individuais por atendimento, com os serviços associados.
-- **Ausências:** pessoas ativas sem atendimento nos últimos X dias ou sem atendimento anterior até a data de referência.
-- **Cadastros:** informação sobre campos preenchidos e disponibilidade de fotografia.
+#### 4.2. Consultas e exportação
 
-**Interpretação:** uma pessoa com três presenças e sete serviços representa três dias de comparecimento e sete serviços registrados; não são sete visitas.
+- **Visão geral:** distribuição de serviços e evolução dos registros.
+- **Frequência:** quantidade de presenças por pessoa.
+- **Histórico:** atendimentos individuais e respectivos serviços.
+- **Ausências:** pessoas ativas sem atendimento recente.
+- **Cadastros:** preenchimento de campos e disponibilidade de fotografia.
 
-#### 4.4. Exportar
+As tabelas podem oferecer exportação em **CSV**; a tela também permite gerar relatórios em **PDF**, com apresentação institucional em tons de cinza. Antes de compartilhar arquivos, confira se os destinatários estão autorizados a acessar os dados pessoais.
 
-Use os botões de **CSV** nas seções de tabela ou selecione o conteúdo no campo de exportação e clique em **Baixar relatório em PDF**.
+### 5. Logs do sistema (V1.1.0)
 
-O PDF tem aparência institucional, em tons de cinza, e identifica **Jeronimo Costa Penha** como desenvolvedor. Os gráficos podem aparecer na tela; sua inclusão no PDF depende da versão instalada.
+Acesse **Logs do sistema** no menu administrativo para consultar eventos de autenticação, cadastros, atendimentos, fotografias, usuários, backups, restaurações e outras operações auditadas.
 
-**Privacidade:** antes de compartilhar um PDF ou CSV, verifique se o destinatário está autorizado a receber nomes e histórico de pessoas atendidas. Sempre que possível, prefira dados agregados.
+#### 5.1. Consultar
 
-### 5. Backup por download
+1. Se necessário, filtre por **operador**, **ação**, **resultado** e **período**.
+2. Ajuste o **máximo de registros** exibidos.
+3. Consulte a tabela ordenada pelas operações registradas.
+4. Na seção **Detalhes da operação**, selecione o ID de um registro para examinar as informações adicionais.
 
-O PrestServ foi planejado para produzir backup **sob demanda, por download**, sem guardar cópias permanentes na pasta do servidor.
+O filtro de **ação** apresenta as ações encontradas no histórico. As datas exibidas na interface são convertidas para o horário de Brasília; o banco armazena os horários de auditoria em UTC.
 
-1. Entre com uma conta administrativa.
-2. Acesse **Backup e restauração** (se a função já estiver habilitada na instalação).
-3. Clique em **Preparar backup**.
-4. Clique em **Baixar backup**.
-5. Guarde o arquivo `.db` em local seguro, preferencialmente fora do computador que executa o sistema.
-6. Confirme que o download foi concluído e que o arquivo está acessível.
+#### 5.2. Limpar logs selecionados
 
-O backup inclui cadastros, fotografias, atendimentos e contas de usuário. **Ele contém dados pessoais e hashes de senhas; trate-o como informação confidencial.**
+1. Marque as caixas de seleção dos registros que deseja excluir, ou utilize **Selecionar todos** para selecionar os exibidos.
+2. Confira a quantidade selecionada; o limite é de **500 registros por operação**.
+3. Marque a confirmação de exclusão definitiva.
+4. Clique em **Excluir selecionados**.
 
-Sugestão operacional: realizar o download em uma frequência definida pela instituição, por exemplo após cada dia de atendimento, e guardar mais de uma geração em locais protegidos.
+A exclusão gera um **novo log `excluir_logs`**, contendo o operador, a quantidade e os identificadores removidos. A operação de limpeza não restaura os eventos apagados.
 
-### 6. Restauração por upload
+**Limitação:** a trilha de auditoria não é imutável. Um administrador poderá excluir posteriormente até mesmo o registro de uma limpeza anterior. A exclusão não deve ser tratada como um mecanismo de retenção inviolável.
 
-**Advertência:** restaurar um backup substitui os dados existentes pelo conteúdo do arquivo escolhido. Registros criados após a data daquele backup podem ser perdidos.
+### 6. Backup por download
 
-Procedimento seguro:
+Na área **Backup e restauração**, abra a aba de backup:
 
-1. Planeje uma janela de manutenção e interrompa o uso por todos os operadores.
-2. Faça e baixe um backup do estado atual antes da restauração.
-3. Na área **Restaurar backup**, selecione o arquivo `.db`.
-4. Confira nome e tamanho e confirme conscientemente a substituição.
-5. Execute a restauração somente com todas as conexões de atendimento encerradas e com o procedimento técnico de manutenção validado.
-6. Reabra o sistema, autentique-se novamente e confira cadastros, fotos e atendimentos de amostra.
+1. Clique em **Preparar backup**.
+2. Clique em **Baixar backup ZIP**.
+3. Salve o arquivo `.zip` em local seguro, preferencialmente fora do computador do servidor.
+4. Confira o arquivo obtido antes de considerá-lo uma cópia de segurança válida.
 
-**Não faça uma restauração em produção enquanto houver usuários trabalhando.** A presença de um aviso na tela, por si só, não garante que outras sessões foram interrompidas. O mecanismo de bloqueio/manutenção deve ser testado antes de liberar esta função.
+O ZIP contém o arquivo **`prestserv.db`**, que inclui cadastros, fotos, atendimentos, usuários e logs existentes no momento da cópia. Ele também contém dados pessoais e hashes de senha, portanto é **confidencial**. Não envie backups ao GitHub ou a canais públicos.
 
-### 7. Proteção dos dados
+Adote uma frequência de cópias definida pela instituição e mantenha mais de uma geração, de preferência em locais protegidos distintos. A aplicação não implementa automaticamente uma política externa de retenção ou de backup programado.
 
-- Restrinja o acesso à máquina e à pasta que contém `prestserv.db`.
-- Não envie o banco real, backups ou relatórios pessoais para um repositório público.
-- Proteja os arquivos baixados e elimine cópias desnecessárias de forma apropriada.
-- Exija credenciais individuais e desative acessos não utilizados.
-- Evite abrir o PrestServ em rede pública sem medidas adicionais de proteção.
-- O SQLite padrão **não possui senha de acesso ao arquivo**; o login do PrestServ protege a interface, não a leitura direta do arquivo por quem tem permissões no sistema operacional.
+### 7. Restauração por upload
 
-### 8. Verificação rotineira
+**Advertência:** restaurar um backup substitui o banco atual. Dados e logs produzidos depois do backup selecionado podem ser perdidos.
 
-Antes de iniciar as atividades: confirmar acesso dos usuários, data do sistema e disponibilidade da aplicação. Ao final: conferir os lançamentos do dia e executar o procedimento institucional de backup. Periodicamente: revisar cadastros duplicados/inativos, permissões de usuários e qualidade dos dados.
+1. Programe uma janela de manutenção e interrompa os atendimentos.
+2. Faça e baixe um backup **atual** antes de qualquer restauração.
+3. Na aba **Restaurar backup**, envie um arquivo `.zip` de backup do PrestServ.
+4. Verifique o arquivo apresentado e marque a confirmação da substituição.
+5. Execute **Restaurar banco de dados** somente quando não houver usuários realizando operações.
+6. Entre novamente e confira pessoas, usuários, fotos, atendimentos e logs.
 
-### 9. O que não deve ser presumido nesta versão
+O programa verifica formato, estrutura e integridade antes da substituição. O procedimento de restauração foi testado em banco isolado durante a preparação da V1.1.0; **a validação de uma restauração em produção exige cuidados adicionais com sessões e acesso simultâneo**.
 
-A documentação não afirma que exista auditoria imutável de ações, expiração de sessão, backup automático ou criptografia do arquivo SQLite. Essas funções devem ser consideradas **indisponíveis** até serem expressamente implementadas e testadas.
+A restauração registra um evento no histórico resultante, mas **não preserva os logs gerados após a data do backup restaurado**.
+
+### 8. Proteção de dados e segurança
+
+- Restrinja o acesso à máquina, à pasta do banco e aos arquivos ZIP de backup.
+- Use credenciais individuais; desative contas de quem não deve mais acessar.
+- Evite compartilhar capturas de tela, CSV ou PDF com dados de pessoas atendidas.
+- Não armazene backups nem bancos reais em repositórios públicos.
+- O SQLite padrão **não protege o arquivo com senha**; o login restringe o acesso pela aplicação, e não por acesso direto ao disco.
+- A auditoria auxilia na rastreabilidade, mas não substitui controles de segurança no sistema operacional, na rede e na infraestrutura.
+
+### 9. Verificações rotineiras
+
+Antes do expediente, confirme o funcionamento da aplicação e o acesso das contas autorizadas. Ao final do dia, revise os atendimentos e faça o backup conforme a política da instituição. Periodicamente, analise os logs, revise contas inativas e confira a qualidade dos cadastros.
+
+### 10. Limitações conhecidas
+
+A V1.1.0 não deve ser descrita como possuidora de **auditoria imutável**, **criptografia nativa do banco SQLite**, **backup automático programado** ou **recuperação automática de dados excluídos**. Essas capacidades exigem soluções específicas que não fazem parte desta atualização.
+
 
 \newpage
 
-
 ## Instalação e manutenção técnica
 
-**PrestServ 1.0 - orientações para o responsável técnico**
+### 1. Arquitetura e funcionamento
 
-### 1. Arquitetura resumida
+O PrestServ utiliza **Python**, **Streamlit** (interface web), **SQLite** (persistência), **Pillow** (tratamento de fotografias), **pandas** (consultas e tabelas) e **ReportLab** (relatórios em PDF). Pode ser executado diretamente em ambiente Python ou em contêiner Docker. Na implantação atualmente utilizada, o serviço é acessado por um proxy reverso Nginx.
 
-O PrestServ usa **Python**, **Streamlit** (interface web), **SQLite** (persistência) e **Pillow** (tratamento de fotografias). Os relatórios usam **pandas** e **ReportLab**. O navegador acessa o serviço Streamlit executado na máquina que hospeda a aplicação.
+Existem dois perfis de usuário: `admin` e `porteiro`. A aplicação guarda os usuários no banco SQLite; a autenticação pela interface não cifra o arquivo físico.
 
-O mesmo projeto pode ser usado localmente ou em uma rede controlada. A implantação final em Windows depende da configuração da máquina e da distribuição escolhida.
+### 2. Organização dos arquivos
 
-### 2. Estrutura sugerida do projeto
+A estrutura principal inclui os seguintes arquivos (além de outros módulos auxiliares):
 
 ```text
-prestserv/
+PrestServ/
 ├── app.py
 ├── auth.py
-├── database.py
-├── inicializar_banco.py
-├── criar_admin.py
-├── presencas.py
+├── backup.py
 ├── cadastros.py
-├── relatorios.py
+├── common.py
 ├── consultas_relatorios.py
-├── pdf_relatorios.py
+├── criar_admin.py
+├── database.py
+├── estrutura_v110.py
 ├── fotos.py
-├── backups.py
+├── inicializar_banco.py
+├── pdf_relatorios.py
+├── presencas.py
+├── relatorios.py
 ├── tela_backups.py
+├── tela_logs.py
+├── requirements.txt
 ├── docs/
+│   ├── README.md
 │   ├── visao_geral.md
 │   ├── manual_porteiro.md
 │   ├── manual_administrador.md
-│   └── instalacao_manutencao.md
-├── dados/                 # Criada localmente; não versionar
-│   └── prestserv.db       # Dados reais; não versionar
-└── .gitignore
+│   ├── instalacao_manutencao.md
+│   ├── manual_completo.md
+│   ├── estilo_pdf.tex
+│   └── gerar_manuais.sh
+└── dados/
+    └── PrestServ.db
 ```
 
-Os nomes dos arquivos refletem o planejamento atual; confira o repositório antes de usar instruções de instalação automatizada.
+**Importante (Linux):** o caminho real do banco é definido em `database.py` como `dados/PrestServ.db`, com letras maiúsculas. O nome interno **`prestserv.db`** do ZIP é diferente por convenção e não deve ser usado para substituir o caminho real de produção.
 
-### 3. Preparar o ambiente
+A pasta `dados/` e seus arquivos não devem ser enviados para repositórios públicos.
 
-Exemplo para instalação direta com Python:
+### 3. Preparar o ambiente Python
+
+Crie e ative um ambiente virtual na raiz do projeto:
 
 ```bash
 python -m venv .venv
-```
-
-No Linux:
-
-```bash
 source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-No Windows (PowerShell):
+No Windows PowerShell, a ativação correspondente é `.venv\Scripts\Activate.ps1`.
 
-```powershell
-.venv\Scripts\Activate.ps1
-```
+O `requirements.txt` deve registrar versões verificadas e compatíveis com o **Python da imagem Docker utilizada**. Um arquivo gerado em ambiente Python 3.14 não garante, por si só, instalação compatível em uma imagem Python 3.12; valide a construção do contêiner antes da publicação.
 
-Instale as dependências:
+### 4. Inicializar o banco e criar o administrador inicial
 
-```bash
-python -m pip install streamlit pillow pandas reportlab
-```
-
-O ideal para distribuição é manter um arquivo `requirements.txt` com versões testadas e instalar por `python -m pip install -r requirements.txt`.
-
-### 4. Criar automaticamente o banco
-
-Ao iniciar a instalação, `inicializar_banco.py` deve criar a pasta `dados/`, o arquivo `prestserv.db`, tabelas, índices e serviços iniciais **se não existirem**, sem sobrescrever bancos anteriores.
-
-Execução manual inicial:
+Execute:
 
 ```bash
 python inicializar_banco.py
-```
-
-O `app.py` também pode chamar `inicializar_banco()` antes de acessar o banco.
-
-**Aviso:** `CREATE TABLE IF NOT EXISTS` inicializa bancos novos, mas **não migra** automaticamente alterações de estrutura de versões futuras. Migrações precisarão de scripts próprios.
-
-### 5. Criar a primeira conta administrativa
-
-Depois de inicializar um banco novo, execute:
-
-```bash
 python criar_admin.py
 ```
 
-O programa solicita os dados da primeira conta. Conforme o mecanismo atual, a criação inicial é bloqueada quando já existe algum usuário. Mantenha a senha em sigilo e teste o acesso antes de liberar a aplicação.
+A primeira execução cria as tabelas de pessoas, serviços, presenças, usuários e fotografias, com os serviços iniciais **Jantar**, **Banho** e **Roupas**. `criar_admin.py` configura a conta administrativa inicial. Guarde as credenciais com segurança.
 
-### 6. Executar o sistema
+Na execução normal, `app.py` também chama `inicializar_banco()` antes de disponibilizar as telas.
+
+### 5. Migração de esquema na V1.1.0
+
+O módulo `estrutura_v110.py` cria a tabela `logs` e os índices associados, sem apagar os registros existentes. A migração é chamada pela inicialização do banco e define `PRAGMA user_version = 1` na implementação atual.
+
+- **Banco novo:** a tabela de logs é preparada durante a inicialização.
+- **Banco V1.0 existente:** a estrutura de auditoria é criada, preservando os cadastros, usuários e atendimentos existentes.
+- **Executar novamente:** a migração foi projetada para ser repetida sem recriar a tabela ou descartar os dados existentes.
+
+A migração foi testada com uma cópia isolada do banco, incluindo verificação de integridade. **Isso não representa um mecanismo genérico de migração para todas as versões futuras**: alterações posteriores exigirão validações próprias.
+
+Não altere manualmente o número `user_version` para simular uma migração de produção sem respaldo técnico.
+
+### 6. Executar a aplicação
 
 ```bash
 python -m streamlit run app.py
 ```
 
-O Streamlit geralmente usa a porta `8501`, salvo configuração em contrário. Para acesso em outros dispositivos da rede, defina endereço de escuta e regras de firewall apropriados. **Não publique diretamente na internet uma instalação pensada somente para rede local.**
+O Streamlit utiliza normalmente a porta **8501**, salvo configuração em contrário. Controle acesso, firewall e regras do proxy reverso conforme a instalação. O encerramento ou recarregamento de uma sessão pode exigir novo login; atendimentos já salvos permanecem no banco.
 
-Se a página for atualizada com **F5**, a autenticação armazenada em `st.session_state` pode ser perdida e será necessário entrar novamente. Isso não indica perda dos registros já salvos.
+Na versão preparada para publicação, os administradores podem acessar **Presenças**, **Cadastros**, **Relatórios**, **Logs do sistema**, **Backup e restauração** e **Administração**; o porteiro acessa a operação de presenças.
 
-### 7. Banco SQLite
+### 7. Banco SQLite e integridade
 
-O caminho padrão do banco é definido em `database.py` e aponta para `dados/prestserv.db` em relação à pasta do projeto. Cada conexão deve ativar as chaves estrangeiras:
+O arquivo padrão é `dados/PrestServ.db`. Cada conexão operacional deve ativar:
 
 ```sql
 PRAGMA foreign_keys = ON;
 ```
 
-O arquivo `.db` contém também as fotografias. Portanto, copiá-lo ou compartilhá-lo equivale a copiar dados pessoais e registros de usuários.
+Comandos úteis para verificar uma cópia do banco:
 
-### 8. Backup e restauração
+```sql
+PRAGMA user_version;
+PRAGMA integrity_check;
+PRAGMA foreign_key_check;
+```
 
-A estratégia prevista é **backup por download** e **restauração por upload**, sem diretório persistente de backups no servidor.
+Resultado esperado após migração: `user_version = 1`, `integrity_check = ok` e nenhuma violação em `foreign_key_check`.
 
-- **Backup:** use a API `sqlite3.Connection.backup()` para gerar uma cópia consistente antes de disponibilizá-la ao navegador.
-- **Restauração:** valide o arquivo recebido, estrutura e integridade antes da substituição. Execute em janela de manutenção, sem operadores conectados.
-- **Retomada:** reinicie a aplicação e reautentique os usuários após uma restauração bem-sucedida.
+A tabela `logs` guarda data/hora em UTC, operador, tipo de ação, entidade afetada, resultado e detalhes em JSON quando disponíveis. A interface exibe datas no horário de Brasília. Como os logs não possuem chave estrangeira para `usuarios`, podem sobreviver à exclusão de uma conta.
 
-**Teste obrigatório:** executar um ciclo completo de backup e restauração em uma base de teste, incluindo fotos, usuários e presenças. Não confiar apenas no recebimento do arquivo.
+### 8. Exclusões e auditoria
 
-### 9. Git e exclusão de dados
+A verificação de vínculos antes de excluir pessoas ou usuários é implementada em `estrutura_v110.py` e aplicada novamente no momento da exclusão. Pessoas com fotografias ou atendimentos vinculados não podem ser excluídas por esse fluxo. O último administrador ativo e a própria conta administrativa estão protegidos contra exclusão.
 
-Regras recomendadas para `.gitignore`:
+A rotina de limpeza de logs limita a operação a **500 IDs**, valida autorização e registra a exclusão. **Não considere os logs uma auditoria imutável**, pois um administrador autorizado pode excluí-los pela interface.
+
+Os registros de auditoria podem conter informações administrativas e identificadores pessoais. Controle seu acesso e não os publique.
+
+### 9. Backup e restauração
+
+#### 9.1. Gerar backup
+
+O módulo `backup.py` gera em memória uma cópia consistente do SQLite com `sqlite3.Connection.backup()`, compactada em ZIP. O nome do arquivo interno é **`prestserv.db`**. O backup inclui pessoas, usuários, fotografias, atendimentos e logs existentes no momento da geração.
+
+A interface administrativa oferece **Preparar backup** e **Baixar backup ZIP**. Não há necessidade de uma pasta persistente de backups no servidor para este procedimento; a política de armazenamento externo é responsabilidade da instituição.
+
+#### 9.2. Restaurar backup
+
+A restauração aceita ZIP no formato previsto e valida arquivo, tabelas obrigatórias, integridade, relações entre tabelas e existência de administrador ativo antes de substituir o banco. A restauração deve ocorrer **sem atendimentos concorrentes** e com backup prévio do estado atual.
+
+Depois da operação, autentique-se novamente e confira cadastros, pessoas, fotografias, atendimentos e logs. Um backup restaurado pode substituir o histórico atual por um histórico mais antigo; a versão nova registra o evento de restauração no banco restaurado.
+
+#### 9.3. Testes realizados na preparação da V1.1.0
+
+- ZIP de backup: verificada a presença de `prestserv.db`.
+- Integridade da cópia: `ok` e nenhuma violação de chaves estrangeiras.
+- Migração isolada: tabela `logs` recriada, `user_version = 1`, dados preservados.
+- Restauração isolada: integridade `ok`, dados preservados e último evento `restaurar_backup`.
+
+Esses resultados foram obtidos em testes locais. Antes da publicação, valide também a imagem Docker e os procedimentos da infraestrutura real.
+
+### 10. Implantação Docker e proxy reverso
+
+A atualização da imagem Docker deve ser executada somente após validar o `requirements.txt` com a versão de Python definida no `Dockerfile` e confirmar a persistência do diretório `dados/` por volume ou montagem equivalente.
+
+Procedimento recomendado:
+
+1. Registrar o estado atual da implantação e obter um backup ZIP íntegro.
+2. Construir e testar a nova imagem na branch de desenvolvimento.
+3. Verificar a configuração do volume de dados e os parâmetros de rede/proxy.
+4. Publicar a tag da versão no repositório e implantar a imagem revisada no Portainer.
+5. Verificar login, operações principais, logs, relatórios e backup após a atualização.
+
+**Nunca recrie ou substitua um volume de produção sem garantir a recuperação dos dados.** Esta documentação não pressupõe comandos exatos de Docker Compose ou Portainer, pois dependem dos arquivos reais de implantação.
+
+### 11. Git e proteção de dados
+
+Exemplo de padrões a incluir no `.gitignore`:
 
 ```gitignore
 .venv/
@@ -428,37 +500,37 @@ build/
 dist/
 ```
 
-Se dados sensíveis já tiverem sido publicados anteriormente, `.gitignore` **não apaga o histórico de commits**. Essa situação exige tratamento específico.
+Um `.gitignore` não remove arquivos sensíveis de commits anteriores; consulte o histórico caso algum dado real já tenha sido publicado.
 
-### 10. Validação pré-lançamento
+### 12. Checklist de validação antes da publicação
 
-- [ ] Banco criado automaticamente em instalação limpa.
-- [ ] Conta de administrador inicial criada e autenticação validada.
-- [ ] Porteiro vê somente as funções previstas para seu perfil.
-- [ ] Cadastro, alteração e desativação de pessoas testados.
-- [ ] Fotografia enviada, visualizada, substituída e removida.
-- [ ] Atendimento criado, corrigido, retroativo e removido conforme regra de serviços.
-- [ ] Indicadores e totais dos relatórios conferidos com o SQLite.
-- [ ] PDF e CSV testados com acentos e dados extensos.
-- [ ] Backup baixado e validado.
-- [ ] Restauração testada com o sistema parado e base descartável.
-- [ ] Pastas e permissões do Windows verificadas.
-- [ ] Documentação revisada a partir da interface realmente instalada.
+- [ ] Executar `python -m compileall -q .` sem erros.
+- [ ] Confirmar versão do Python e resolver dependências em ambiente compatível com o Docker.
+- [ ] Confirmar que o banco real é persistido fora do contêiner efêmero.
+- [ ] Validar autenticação e permissões de `admin` e `porteiro`.
+- [ ] Conferir criação, edição, ativação, desativação e exclusão condicionada de pessoas e usuários.
+- [ ] Conferir fotografia, presenças retroativas e múltiplos serviços.
+- [ ] Consultar logs, filtros, detalhes e limpeza de registros selecionados.
+- [ ] Conferir indicadores, CSV e PDF.
+- [x] Validar backup ZIP, integridade, migração e restauração em cópias isoladas.
+- [ ] Fazer backup imediatamente antes da implantação.
+- [ ] Testar a versão em produção após atualizar a imagem Docker.
 
-### 11. Diagnóstico de problemas
+### 13. Diagnóstico de problemas
 
-**Banco não encontrado:** confira se `inicializar_banco()` foi chamado e se a aplicação tem permissão para criar `dados/`.
+**Banco não encontrado:** confira `DB_PATH` em `database.py`, inclusive maiúsculas e minúsculas, e a montagem do volume.
 
-**Login recusado:** confira usuário ativo, login e senha; não edite o hash manualmente.
+**Login recusado:** confira a conta, senha e situação ativa; nunca edite o hash manualmente.
 
-**Foto não aparece:** confira se existe registro em `fotos_pessoas` e se o envio foi convertido com sucesso.
+**Foto não aparece:** confira a existência do registro em `fotos_pessoas` e o formato da imagem.
 
-**Erro de banco bloqueado (`database is locked`):** verifique conexões duradouras, transações abertas e operações simultâneas; não force substituição do banco enquanto ele está em uso.
+**Banco bloqueado (`database is locked`):** verifique operações simultâneas, transações longas e conexões abertas. Não sobrescreva o arquivo SQLite em uso.
 
-**PDF com cabeçalho ilegível:** verifique se o estilo dos `Paragraph` de cabeçalho foi configurado com texto branco, além do fundo cinza-escuro da tabela.
+**Avisos `use_container_width`:** substitua parâmetros antigos por `width="stretch"` ou `width="content"` conforme o componente. Esses ajustes foram realizados no código de desenvolvimento antes da preparação da documentação.
 
-### 12. Suporte e autoria
+**PDF com texto difícil de ler:** confira configuração de fontes, caracteres acentuados e contraste dos cabeçalhos nos estilos do ReportLab.
 
-Código, documentação e interface desenvolvidos por **Jeronimo Costa Penha**. Os procedimentos locais de suporte e guarda de dados devem ser definidos pela instituição que utiliza o PrestServ.
+### 14. Autoria
 
-\newpage
+Código, documentação e interface desenvolvidos por **Jeronimo Costa Penha**. A instituição usuária deve definir as políticas locais de operação, guarda de dados e acesso aos backups.
+

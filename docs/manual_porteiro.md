@@ -1,8 +1,8 @@
 ---
 title: "Manual do porteiro"
-subtitle: "PrestServ 1.0 - operação diária"
+subtitle: "PrestServ 1.1.0 - operação diária"
 author: "Jeronimo Costa Penha"
-date: "Outubro de 2026"
+date: "Novembro de 2026"
 lang: pt-BR
 ---
 
@@ -72,8 +72,12 @@ Uma pessoa desativada não aparece na lista de atendimento. A reativação depen
 
 **Posso cadastrar pessoas?** Não com o perfil de porteiro. Solicite o cadastro ao administrador.
 
-**Quem pode ver relatórios?** Na configuração prevista para a versão 1.0, o acesso à área de relatórios é administrativo.
+**Quem pode ver relatórios?** O acesso à área de relatórios é restrito ao administrador.
 
-## 8. Roteiro rápido para o posto de atendimento
+## 8. Registro das operações
+
+Na V1.1.0, o sistema registra operações relevantes, como entradas, saídas e alterações de atendimentos. A consulta dos logs é restrita ao administrador. Utilize sempre sua própria conta para que seja possível reconhecer o responsável por cada operação.
+
+## 9. Roteiro rápido para o posto de atendimento
 
 **Data correta → Pessoa correta → Conferir identificação → Marcar serviços → Salvar → Conferir confirmação.**

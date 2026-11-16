@@ -2,7 +2,7 @@
 title: "Apresentação do PrestServ"
 subtitle: "Finalidade: registro e acompanhamento de atendimentos sociais"
 author: "Jeronimo Costa Penha"
-date: "Outubro de 2026"
+date: "Novembro de 2026"
 lang: pt-BR
 ---
 
@@ -21,6 +21,7 @@ O sistema foi concebido para uma operação simples, com poucos usuários, evita
 - **Atendimentos:** pessoa, data do atendimento e serviços recebidos.
 - **Usuários:** nome, login, perfil, situação ativa/inativa e senha armazenada em forma de hash.
 - **Relatórios:** indicadores, frequência, serviços prestados e histórico de atendimentos.
+- **Auditoria (V1.1.0):** data e hora das operações, identificação do operador, ação, resultado e detalhes quando disponíveis.
 
 Uma pessoa pode receber vários serviços no mesmo dia, mas terá **uma única presença por data**. Por exemplo, jantar e banho no mesmo dia correspondem a uma presença e dois serviços. Um atendimento sem serviços selecionados não é mantido no banco.
 
@@ -29,7 +30,7 @@ Uma pessoa pode receber vários serviços no mesmo dia, mas terá **uma única p
 | Perfil | Atividades principais |
 |:--|:--|
 | **Porteiro** | Localizar pessoa cadastrada, conferir identificação e registrar ou corrigir serviços na data selecionada. |
-| **Administrador** | Todas as atividades do porteiro, além de cadastro de pessoas, gestão de usuários, relatórios e operações administrativas disponíveis na instalação. |
+| **Administrador** | Todas as atividades do porteiro, além de cadastro de pessoas, gestão de usuários, relatórios, consulta de logs, backup e restauração. |
 
 A aplicação não disponibiliza cadastro público de pessoas nem acesso anônimo ao histórico.
 
@@ -61,7 +62,13 @@ O PrestServ é um instrumento administrativo, e não substitui políticas instit
 
 O banco SQLite padrão não exige senha para abrir o arquivo diretamente. Por isso, a proteção do computador, as permissões de acesso ao arquivo e o armazenamento seguro de backups são fundamentais.
 
-## 7. Créditos
+## 7. Auditoria e exclusão (V1.1.0)
+
+As operações relevantes são registradas para facilitar a identificação de alterações. Somente administradores podem consultar e excluir logs pela interface. A exclusão de pessoas e usuários é condicionada aos vínculos existentes; quando um cadastro possui histórico associado, a desativação permite preservá-lo.
+
+**Limite importante:** logs podem ser excluídos por administradores e não constituem trilha de auditoria imutável. Um backup restaurado não preserva automaticamente operações realizadas após a criação desse backup.
+
+## 8. Créditos
 
 **Desenvolvido por Jeronimo Costa Penha.**  
-PrestServ - documentação da versão 1.0.
+PrestServ - documentação da versão 1.1.0.
