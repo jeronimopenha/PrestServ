@@ -20,7 +20,12 @@ def campo_texto(valor):
 def salvar_imagem(pessoa_id, arquivo):
     if arquivo is not None:
         foto_jpeg = converter_para_jpeg(arquivo)
-        salvar_foto(pessoa_id, foto_jpeg)
+        salvar_foto(
+            pessoa_id,
+            foto_jpeg,
+            ator_id=st.session_state["usuario"]["id"],
+            ator_login=st.session_state["usuario"]["login"],
+        )
 
 
 def tela_cadastros():
@@ -58,12 +63,25 @@ def novo_cadastro():
             # Valida a imagem antes de criar o cadastro.
             foto_jpeg = converter_para_jpeg(foto) if foto is not None else None
 
+            ator = st.session_state["usuario"]
+
             pessoa_id = cadastrar_pessoa(
-                nome, documento, telefone, contato_nome, contato_telefone
+                nome,
+                documento,
+                telefone,
+                contato_nome,
+                contato_telefone,
+                ator_id=ator["id"],
+                ator_login=ator["login"],
             )
 
             if foto_jpeg is not None:
-                salvar_foto(pessoa_id, foto_jpeg)
+                salvar_foto(
+                    pessoa_id,
+                    foto_jpeg,
+                    ator_id=st.session_state["usuario"]["id"],
+                    ator_login=st.session_state["usuario"]["login"],
+                )
 
             st.success(f"Pessoa cadastrada com sucesso! ID: {pessoa_id}")
 
@@ -142,12 +160,26 @@ def editar_cadastro():
                 converter_para_jpeg(nova_foto) if nova_foto is not None else None
             )
 
+            ator = st.session_state["usuario"]
+
             atualizar_pessoa(
-                pessoa_id, nome, documento, telefone, contato_nome, contato_telefone
+                pessoa_id,
+                nome,
+                documento,
+                telefone,
+                contato_nome,
+                contato_telefone,
+                ator_id=ator["id"],
+                ator_login=ator["login"],
             )
 
             if foto_jpeg is not None:
-                salvar_foto(pessoa_id, foto_jpeg)
+                salvar_foto(
+                    pessoa_id,
+                    foto_jpeg,
+                    ator_id=st.session_state["usuario"]["id"],
+                    ator_login=st.session_state["usuario"]["login"],
+                )
 
             st.toast("Cadastro atualizado com sucesso!")
             st.rerun()
@@ -158,18 +190,29 @@ def editar_cadastro():
     st.divider()
 
     st.write("### Situação do cadastro")
+    ator = st.session_state["usuario"]
 
     if pessoa["ativo"]:
         st.success("Cadastro ativo")
 
         if st.button("Desativar pessoa", key=f"desativar_{pessoa_id}"):
-            alterar_status_pessoa(pessoa_id, False)
+            alterar_status_pessoa(
+                pessoa_id,
+                False,
+                ator["id"],
+                ator["login"],
+            )
             st.rerun()
     else:
         st.warning("Cadastro inativo")
 
         if st.button("Reativar pessoa", key=f"reativar_{pessoa_id}"):
-            alterar_status_pessoa(pessoa_id, True)
+            alterar_status_pessoa(
+                pessoa_id,
+                True,
+                ator["id"],
+                ator["login"],
+            )
             st.rerun()
 
     if foto_atual:
@@ -184,6 +227,10 @@ def editar_cadastro():
                 disabled=not confirmar,
                 key=f"remover_foto_{pessoa_id}",
             ):
-                remover_foto(pessoa_id)
+                remover_foto(
+                    pessoa_id,
+                    ator_id=st.session_state["usuario"]["id"],
+                    ator_login=st.session_state["usuario"]["login"],
+                )
                 st.toast("Fotografia removida.")
                 st.rerun()

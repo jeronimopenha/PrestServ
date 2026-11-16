@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from backup import gerar_backup, restaurar_backup
+from database import conectar, registrar_log
 
 
 def tela_backups():
@@ -24,7 +25,27 @@ def tela_backups():
 
         if st.button("Preparar backup"):
             try:
-                st.session_state["backup_preparado"] = (nome, gerar_backup())
+                conteudo = gerar_backup()
+                ator = st.session_state["usuario"]
+
+                with conectar() as conexao:
+                    registrar_log(
+                        conexao,
+                        acao="gerar_backup",
+                        usuario_id=ator["id"],
+                        usuario_login=ator["login"],
+                        entidade="sistema",
+                        detalhes={
+                            "arquivo": nome,
+                            "tamanho_bytes": len(conteudo),
+                        },
+                    )
+
+                st.session_state["backup_preparado"] = (
+                    nome,
+                    conteudo,
+                )
+
             except Exception as erro:
                 st.error(f"Erro ao preparar backup: {erro}")
 
@@ -66,7 +87,13 @@ def tela_backups():
                 "Restaurar banco de dados", disabled=not confirmar, type="primary"
             ):
                 try:
-                    restaurar_backup(arquivo.getvalue())
+                    ator = st.session_state["usuario"]
+
+                    restaurar_backup(
+                        arquivo.getvalue(),
+                        ator_id=ator["id"],
+                        ator_login=ator["login"],
+                    )
 
                     st.session_state.pop("backup_preparado", None)
 

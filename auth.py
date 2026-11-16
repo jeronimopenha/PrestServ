@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import secrets
 
-from database import conectar
+from database import conectar, registrar_log
 from common import ITERACOES, TAM_SENHA
 
 
@@ -33,6 +33,8 @@ def verificar_senha(senha, hash_armazenado):
 
 
 def autenticar(login, senha):
+    login = login.strip()
+
     with conectar() as conexao:
         usuario = conexao.execute(
             """
@@ -40,24 +42,50 @@ def autenticar(login, senha):
             FROM usuarios
             WHERE login = ? AND ativo = 1
             """,
-            (login.strip(),),
+            (login,),
         ).fetchone()
 
-    if usuario is None:
-        return None
+        # Usuário inexistente ou inativo.
+        if usuario is None:
+            registrar_log(
+                conexao,
+                acao="login",
+                usuario_login=login,
+                resultado="falha",
+                detalhes={"motivo": "credenciais_invalidas"},
+            )
+            return None
 
-    if not verificar_senha(senha, usuario["senha_hash"]):
-        return None
+        # Senha incorreta.
+        if not verificar_senha(senha, usuario["senha_hash"]):
+            registrar_log(
+                conexao,
+                acao="login",
+                usuario_id=usuario["id"],
+                usuario_login=usuario["login"],
+                resultado="falha",
+                detalhes={"motivo": "credenciais_invalidas"},
+            )
+            return None
 
-    return {
-        "id": usuario["id"],
-        "nome": usuario["nome"],
-        "login": usuario["login"],
-        "perfil": usuario["perfil"],
-    }
+        # Autenticação bem-sucedida.
+        registrar_log(
+            conexao,
+            acao="login",
+            usuario_id=usuario["id"],
+            usuario_login=usuario["login"],
+            resultado="sucesso",
+        )
+
+        return {
+            "id": usuario["id"],
+            "nome": usuario["nome"],
+            "login": usuario["login"],
+            "perfil": usuario["perfil"],
+        }
 
 
-def criar_usuario(nome, login, senha, perfil):
+def criar_usuario(nome, login, senha, perfil, ator_id=None, ator_login=None):
     if perfil not in ("admin", "porteiro"):
         raise ValueError("Perfil inválido.")
 
@@ -78,7 +106,22 @@ def criar_usuario(nome, login, senha, perfil):
             (nome, login, senha_hash, perfil),
         )
 
-        return cursor.lastrowid
+        novo_id = cursor.lastrowid
+
+        registrar_log(
+            conexao,
+            acao="criar_usuario",
+            usuario_id=ator_id,
+            usuario_login=ator_login or "sistema",
+            entidade="usuarios",
+            entidade_id=novo_id,
+            detalhes={
+                "login_criado": login,
+                "perfil": perfil,
+            },
+        )
+
+        return novo_id
 
 
 def listar_usuarios():
@@ -99,12 +142,44 @@ def alterar_status_usuario(usuario_id, ativo):
         )
 
 
-def redefinir_senha(usuario_id, nova_senha):
+def redefinir_senha(usuario_id, nova_senha, ator_id):
     senha_hash = gerar_hash(nova_senha)
 
     with conectar() as conexao:
-        conexao.execute(
-            "UPDATE usuarios SET senha_hash = ? WHERE id = ?", (senha_hash, usuario_id)
+        # Identifica e valida o administrador responsável.
+        ator = conexao.execute(
+            """
+            SELECT login, perfil, ativo
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None or ator["perfil"] != "admin" or not ator["ativo"]:
+            raise ValueError("Administrador responsável inválido.")
+
+        # Atualiza a senha.
+        cursor = conexao.execute(
+            """
+            UPDATE usuarios
+            SET senha_hash = ?
+            WHERE id = ?
+            """,
+            (senha_hash, usuario_id),
+        )
+
+        if cursor.rowcount == 0:
+            raise ValueError("Usuário não encontrado.")
+
+        # Registra a operação, sem armazenar senhas.
+        registrar_log(
+            conexao,
+            acao="redefinir_senha_usuario",
+            usuario_id=ator_id,
+            usuario_login=ator["login"],
+            entidade="usuarios",
+            entidade_id=usuario_id,
         )
 
 
@@ -124,7 +199,7 @@ def atualizar_usuario(usuario_id, nome, login, perfil, ator_id):
     with conectar() as conexao:
         usuario = conexao.execute(
             """
-            SELECT id, perfil, ativo
+            SELECT id, nome, login, perfil, ativo
             FROM usuarios
             WHERE id = ?
             """,
@@ -149,6 +224,14 @@ def atualizar_usuario(usuario_id, nome, login, perfil, ator_id):
             if total <= 1:
                 raise ValueError("O último administrador ativo não pode ser rebaixado.")
 
+        ator = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None:
+            raise ValueError("Administrador responsável não encontrado.")
+
         conexao.execute(
             """
             UPDATE usuarios
@@ -157,6 +240,34 @@ def atualizar_usuario(usuario_id, nome, login, perfil, ator_id):
             """,
             (nome, login, perfil, usuario_id),
         )
+
+        alteracoes = {}
+
+        novos_dados = {
+            "nome": nome,
+            "login": login,
+            "perfil": perfil,
+        }
+
+        for campo, novo_valor in novos_dados.items():
+            valor_anterior = usuario[campo]
+
+            if valor_anterior != novo_valor:
+                alteracoes[campo] = {
+                    "antes": valor_anterior,
+                    "depois": novo_valor,
+                }
+
+        if alteracoes:
+            registrar_log(
+                conexao,
+                acao="atualizar_usuario",
+                usuario_id=ator_id,
+                usuario_login=ator["login"],
+                entidade="usuarios",
+                entidade_id=usuario_id,
+                detalhes={"alteracoes": alteracoes},
+            )
 
 
 def definir_status_usuario(usuario_id, ativo, ator_id):
@@ -188,11 +299,41 @@ def definir_status_usuario(usuario_id, ativo, ator_id):
                     "O último administrador ativo não pode ser desativado."
                 )
 
+        novo_status = int(bool(ativo))
+
+        # Não registra alterações quando o status continua igual.
+        if usuario["ativo"] == novo_status:
+            return
+
+        # Identifica o administrador responsável.
+        ator = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None:
+            raise ValueError("Administrador responsável não encontrado.")
+
+        # Atualiza o status.
         conexao.execute(
             """
             UPDATE usuarios
             SET ativo = ?
             WHERE id = ?
             """,
-            (int(bool(ativo)), usuario_id),
+            (novo_status, usuario_id),
+        )
+
+        # Registra a operação na mesma transação.
+        registrar_log(
+            conexao,
+            acao="ativar_usuario" if novo_status else "desativar_usuario",
+            usuario_id=ator_id,
+            usuario_login=ator["login"],
+            entidade="usuarios",
+            entidade_id=usuario_id,
+            detalhes={
+                "ativo_anterior": bool(usuario["ativo"]),
+                "ativo_novo": bool(novo_status),
+            },
         )

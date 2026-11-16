@@ -130,7 +130,15 @@ def tela_presencas():
         disabled=not presenca and not selecionados,
     ):
         try:
-            salvar_atendimento(pessoa_id, selecionados, data)
+            ator = st.session_state["usuario"]
+
+            salvar_atendimento(
+                pessoa_id,
+                selecionados,
+                data,
+                ator_id=ator["id"],
+                ator_login=ator["login"],
+            )
 
             # Recarrega os valores a partir do banco.
             st.session_state.pop("atendimento_atual", None)

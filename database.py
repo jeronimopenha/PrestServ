@@ -1,11 +1,11 @@
 import sqlite3
+import json
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "dados" / "PrestServ.db"
-print(DB_PATH)
 
 FUSO_HORARIO = ZoneInfo("America/Sao_Paulo")
 
@@ -26,6 +26,47 @@ def conectar():
     conexao.execute("PRAGMA foreign_keys = ON")
 
     return conexao
+
+
+def registrar_log(
+    conexao,
+    acao,
+    usuario_id=None,
+    usuario_login=None,
+    entidade=None,
+    entidade_id=None,
+    resultado="sucesso",
+    detalhes=None,
+):
+    """Registra uma operação no histórico do sistema."""
+
+    detalhes_json = (
+        json.dumps(detalhes, ensure_ascii=False) if detalhes is not None else None
+    )
+
+    conexao.execute(
+        """
+        INSERT INTO logs (
+            usuario_id,
+            usuario_login,
+            acao,
+            entidade,
+            entidade_id,
+            resultado,
+            detalhes_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            usuario_id,
+            usuario_login,
+            acao,
+            entidade,
+            entidade_id,
+            resultado,
+            detalhes_json,
+        ),
+    )
 
 
 def pesquisar_pessoas(termo):
@@ -112,7 +153,9 @@ def buscar_servicos_presenca(presenca_id):
     return [registro["servico_id"] for registro in registros]
 
 
-def salvar_atendimento(pessoa_id, servicos_ids, data=None):
+def salvar_atendimento(
+    pessoa_id, servicos_ids, data=None, ator_id=None, ator_login=None
+):
     """
     Registra, atualiza ou remove um atendimento.
 
@@ -144,10 +187,46 @@ def salvar_atendimento(pessoa_id, servicos_ids, data=None):
             (pessoa_id, data),
         ).fetchone()
 
+        presenca_existia = presenca is not None
+
+        servicos_anteriores = []
+
+        if presenca_existia:
+            servicos_anteriores = sorted(
+                registro["servico_id"]
+                for registro in conexao.execute(
+                    """
+                    SELECT servico_id
+                    FROM presenca_servicos
+                    WHERE presenca_id = ?
+                    """,
+                    (presenca["id"],),
+                ).fetchall()
+            )
+
         # Nenhum serviço selecionado: remove a presença.
         if not servicos_ids:
-            if presenca:
-                conexao.execute("DELETE FROM presencas WHERE id = ?", (presenca["id"],))
+            if presenca_existia:
+                conexao.execute(
+                    "DELETE FROM presencas WHERE id = ?",
+                    (presenca["id"],),
+                )
+
+                registrar_log(
+                    conexao,
+                    acao="remover_atendimento",
+                    usuario_id=ator_id,
+                    usuario_login=ator_login,
+                    entidade="presencas",
+                    entidade_id=presenca["id"],
+                    detalhes={
+                        "pessoa_id": pessoa_id,
+                        "data": data,
+                        "servicos_anteriores": servicos_anteriores,
+                        "servicos_novos": [],
+                    },
+                )
+
             return None
 
         # Valida os serviços antes de gravar.
@@ -160,6 +239,11 @@ def salvar_atendimento(pessoa_id, servicos_ids, data=None):
 
         if not servicos_ids.issubset(servicos_validos):
             raise ValueError("Um ou mais serviços são inválidos.")
+
+        servicos_novos = sorted(servicos_ids)
+
+        if presenca_existia and servicos_anteriores == servicos_novos:
+            return presenca["id"]
 
         # Cria a presença caso ainda não exista.
         conexao.execute(
@@ -198,6 +282,21 @@ def salvar_atendimento(pessoa_id, servicos_ids, data=None):
             VALUES (?, ?)
             """,
             [(presenca_id, servico_id) for servico_id in servicos_ids],
+        )
+        
+        registrar_log(
+            conexao,
+            acao=("atualizar_atendimento" if presenca_existia else "criar_atendimento"),
+            usuario_id=ator_id,
+            usuario_login=ator_login,
+            entidade="presencas",
+            entidade_id=presenca_id,
+            detalhes={
+                "pessoa_id": pessoa_id,
+                "data": data,
+                "servicos_anteriores": servicos_anteriores,
+                "servicos_novos": servicos_novos,
+            },
         )
 
     return presenca_id
@@ -248,7 +347,7 @@ def buscar_foto(pessoa_id):
     return registro["foto"] if registro else None
 
 
-def salvar_foto(pessoa_id, foto_jpeg):
+def salvar_foto(pessoa_id, foto_jpeg, ator_id=None, ator_login=None):
     """Salva ou substitui a fotografia de uma pessoa."""
     if not foto_jpeg:
         raise ValueError("Fotografia vazia.")
@@ -260,6 +359,18 @@ def salvar_foto(pessoa_id, foto_jpeg):
 
         if pessoa is None:
             raise ValueError("Pessoa não encontrada.")
+
+        foto_existente = (
+            conexao.execute(
+                """
+                SELECT 1
+                FROM fotos_pessoas
+                WHERE pessoa_id = ?
+                """,
+                (pessoa_id,),
+            ).fetchone()
+            is not None
+        )
 
         conexao.execute(
             """
@@ -274,18 +385,38 @@ def salvar_foto(pessoa_id, foto_jpeg):
             """,
             (pessoa_id, foto_jpeg),
         )
+        registrar_log(
+            conexao,
+            acao=("substituir_foto" if foto_existente else "adicionar_foto"),
+            usuario_id=ator_id,
+            usuario_login=ator_login,
+            entidade="fotos_pessoas",
+            entidade_id=pessoa_id,
+        )
 
 
-def remover_foto(pessoa_id):
-    """Remove a fotografia de uma pessoa."""
+def remover_foto(pessoa_id, ator_id=None, ator_login=None):
+    """Remove a fotografia e registra a operação."""
+
     with conectar() as conexao:
-        conexao.execute(
+        cursor = conexao.execute(
             """
             DELETE FROM fotos_pessoas
             WHERE pessoa_id = ?
             """,
             (pessoa_id,),
         )
+
+        # Só registra se uma fotografia foi realmente removida.
+        if cursor.rowcount > 0:
+            registrar_log(
+                conexao,
+                acao="remover_foto",
+                usuario_id=ator_id,
+                usuario_login=ator_login,
+                entidade="fotos_pessoas",
+                entidade_id=pessoa_id,
+            )
 
 
 def listar_pessoas_admin():
@@ -303,7 +434,13 @@ def listar_pessoas_admin():
 
 
 def cadastrar_pessoa(
-    nome, documento=None, telefone=None, contato_nome=None, contato_telefone=None
+    nome,
+    documento=None,
+    telefone=None,
+    contato_nome=None,
+    contato_telefone=None,
+    ator_id=None,
+    ator_login=None,
 ):
     nome = nome.strip()
 
@@ -328,7 +465,18 @@ def cadastrar_pessoa(
             ),
         )
 
-        return cursor.lastrowid
+        pessoa_id = cursor.lastrowid
+
+        registrar_log(
+            conexao,
+            acao="cadastrar_pessoa",
+            usuario_id=ator_id,
+            usuario_login=ator_login,
+            entidade="pessoas",
+            entidade_id=pessoa_id,
+        )
+
+        return pessoa_id
 
 
 def atualizar_pessoa(
@@ -338,14 +486,54 @@ def atualizar_pessoa(
     telefone=None,
     contato_nome=None,
     contato_telefone=None,
+    ator_id=None,
+    ator_login=None,
 ):
     nome = nome.strip()
 
     if not nome:
         raise ValueError("O nome é obrigatório.")
 
+    novos_dados = {
+        "nome": nome,
+        "documento": documento.strip() or None if documento else None,
+        "telefone": telefone.strip() or None if telefone else None,
+        "contato_nome": contato_nome.strip() or None if contato_nome else None,
+        "contato_telefone": (
+            contato_telefone.strip() or None if contato_telefone else None
+        ),
+    }
+
     with conectar() as conexao:
-        cursor = conexao.execute(
+        anterior = conexao.execute(
+            """
+            SELECT nome, documento, telefone,
+                   contato_nome, contato_telefone
+            FROM pessoas
+            WHERE id = ?
+            """,
+            (pessoa_id,),
+        ).fetchone()
+
+        if anterior is None:
+            raise ValueError("Pessoa não encontrada.")
+
+        alteracoes = {}
+
+        for campo, valor_novo in novos_dados.items():
+            valor_antigo = anterior[campo]
+
+            if valor_antigo != valor_novo:
+                alteracoes[campo] = {
+                    "antes_preenchido": bool(valor_antigo),
+                    "depois_preenchido": bool(valor_novo),
+                }
+
+        # Nada mudou: não precisa atualizar nem registrar log.
+        if not alteracoes:
+            return
+
+        conexao.execute(
             """
             UPDATE pessoas
             SET nome = ?,
@@ -356,30 +544,68 @@ def atualizar_pessoa(
             WHERE id = ?
             """,
             (
-                nome,
-                documento.strip() or None if documento else None,
-                telefone.strip() or None if telefone else None,
-                contato_nome.strip() or None if contato_nome else None,
-                contato_telefone.strip() or None if contato_telefone else None,
+                novos_dados["nome"],
+                novos_dados["documento"],
+                novos_dados["telefone"],
+                novos_dados["contato_nome"],
+                novos_dados["contato_telefone"],
                 pessoa_id,
             ),
         )
 
-        if cursor.rowcount == 0:
+        registrar_log(
+            conexao,
+            acao="atualizar_pessoa",
+            usuario_id=ator_id,
+            usuario_login=ator_login,
+            entidade="pessoas",
+            entidade_id=pessoa_id,
+            detalhes={"alteracoes": alteracoes},
+        )
+
+
+def alterar_status_pessoa(pessoa_id, ativo, ator_id, ator_login):
+    """Ativa ou desativa uma pessoa, registrando a operação."""
+
+    novo_status = int(bool(ativo))
+
+    with conectar() as conexao:
+        pessoa = conexao.execute(
+            """
+            SELECT ativo
+            FROM pessoas
+            WHERE id = ?
+            """,
+            (pessoa_id,),
+        ).fetchone()
+
+        if pessoa is None:
             raise ValueError("Pessoa não encontrada.")
 
+        status_anterior = pessoa["ativo"]
 
-def alterar_status_pessoa(pessoa_id, ativo):
-    """Ativa ou desativa uma pessoa sem apagar seu histórico."""
-    with conectar() as conexao:
-        cursor = conexao.execute(
+        # Não registra nada quando o status não muda.
+        if status_anterior == novo_status:
+            return
+
+        conexao.execute(
             """
             UPDATE pessoas
             SET ativo = ?
             WHERE id = ?
             """,
-            (int(bool(ativo)), pessoa_id),
+            (novo_status, pessoa_id),
         )
 
-        if cursor.rowcount == 0:
-            raise ValueError("Pessoa não encontrada.")
+        registrar_log(
+            conexao,
+            acao=("ativar_pessoa" if novo_status else "desativar_pessoa"),
+            usuario_id=ator_id,
+            usuario_login=ator_login,
+            entidade="pessoas",
+            entidade_id=pessoa_id,
+            detalhes={
+                "ativo_anterior": bool(status_anterior),
+                "ativo_novo": bool(novo_status),
+            },
+        )

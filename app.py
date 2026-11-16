@@ -9,7 +9,7 @@ from auth import (
     definir_status_usuario,
     redefinir_senha,
 )
-from database import conectar
+from database import conectar, registrar_log
 from presencas import tela_presencas
 from cadastros import tela_cadastros
 from relatorios import tela_relatorios
@@ -185,7 +185,11 @@ def painel_admin():
                         st.error("As senhas não coincidem.")
                     else:
                         try:
-                            redefinir_senha(usuario_id, nova_senha)
+                            redefinir_senha(
+                                usuario_id,
+                                nova_senha,
+                                usuario_atual()["id"],
+                            )
                             st.success("Senha redefinida!")
                         except ValueError as erro:
                             st.error(str(erro))
@@ -203,7 +207,15 @@ def painel_admin():
 
         if salvar:
             try:
-                criar_usuario(nome, login, senha, perfil)
+                ator = usuario_atual()
+                criar_usuario(
+                    nome,
+                    login,
+                    senha,
+                    perfil,
+                    ator_id=ator["id"],
+                    ator_login=ator["login"],
+                )
                 st.success("Usuário cadastrado com sucesso!")
             except sqlite3.IntegrityError:
                 st.error("Esse login já está cadastrado.")
@@ -228,6 +240,15 @@ def main():
         st.caption(f"Perfil: {usuario['perfil']}")
 
         if st.button("Sair", use_container_width=True):
+            with conectar() as conexao:
+                registrar_log(
+                    conexao,
+                    acao="logout",
+                    usuario_id=usuario["id"],
+                    usuario_login=usuario["login"],
+                    entidade="usuarios",
+                    entidade_id=usuario["id"],
+                )
             st.session_state.clear()
             st.rerun()
 

@@ -2,7 +2,8 @@ import sqlite3
 from contextlib import closing
 from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED, BadZipFile
-from database import conectar, DB_PATH
+from database import conectar, DB_PATH, registrar_log
+from estrutura_v110 import criar_estrutura_logs
 
 # Limite de proteção contra arquivos excessivamente grandes.
 # Ajustar caso o banco ultrapasse 512 MB.
@@ -93,7 +94,7 @@ def validar_banco(conexao):
         raise ValueError("O backup não contém um administrador ativo.")
 
 
-def restaurar_backup(conteudo_zip):
+def restaurar_backup(conteudo_zip, ator_id, ator_login):
     """
     Restaura um banco enviado em ZIP.
 
@@ -136,6 +137,24 @@ def restaurar_backup(conteudo_zip):
             validar_banco(origem)
         except sqlite3.DatabaseError as erro:
             raise ValueError("O banco do backup está inválido ou corrompido.") from erro
+
+        # Atualiza a estrutura de backups antigos.
+        criar_estrutura_logs(origem)
+
+        # Registra quem solicitou a restauração.
+        registrar_log(
+            origem,
+            acao="restaurar_backup",
+            usuario_login=ator_login,
+            entidade="sistema",
+            detalhes={
+                "usuario_id_original": ator_id,
+                "tamanho_zip_bytes": len(conteudo_zip),
+            },
+        )
+
+        # Confirma o log antes de copiar o banco.
+        origem.commit()
 
         # Somente executar sem outros usuários conectados.
         with closing(conectar()) as destino:
