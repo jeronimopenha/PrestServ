@@ -283,7 +283,7 @@ def salvar_atendimento(
             """,
             [(presenca_id, servico_id) for servico_id in servicos_ids],
         )
-        
+
         registrar_log(
             conexao,
             acao=("atualizar_atendimento" if presenca_existia else "criar_atendimento"),
@@ -608,4 +608,73 @@ def alterar_status_pessoa(pessoa_id, ativo, ator_id, ator_login):
                 "ativo_anterior": bool(status_anterior),
                 "ativo_novo": bool(novo_status),
             },
+        )
+
+
+def excluir_pessoa(pessoa_id, ator_id):
+    """Exclui uma pessoa somente se não possuir relacionamentos."""
+
+    from estrutura_v110 import consultar_vinculos
+
+    if type(pessoa_id) is not int or pessoa_id <= 0:
+        raise ValueError("Identificador da pessoa inválido.")
+
+    with conectar() as conexao:
+        # Bloqueia outras escritas até o fim da operação.
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Verifica se o operador é um administrador ativo.
+        ator = conexao.execute(
+            """
+            SELECT id, login
+            FROM usuarios
+            WHERE id = ?
+              AND perfil = 'admin'
+              AND ativo = 1
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None:
+            raise ValueError("Administrador não autorizado.")
+
+        pessoa = conexao.execute(
+            "SELECT id FROM pessoas WHERE id = ?",
+            (pessoa_id,),
+        ).fetchone()
+
+        if pessoa is None:
+            raise ValueError("Pessoa não encontrada.")
+
+        # Verifica os relacionamentos dentro da transação.
+        vinculos = consultar_vinculos(conexao, "pessoas", pessoa_id)
+
+        if vinculos:
+            tabelas = ", ".join(v["tabela"] for v in vinculos)
+
+            raise ValueError(
+                "Esta pessoa não pode ser excluída porque "
+                f"possui relacionamentos em: {tabelas}. "
+                "Utilize a desativação."
+            )
+
+        # Tenta excluir. As chaves estrangeiras continuam ativas.
+        try:
+            conexao.execute(
+                "DELETE FROM pessoas WHERE id = ?",
+                (pessoa_id,),
+            )
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(
+                "Exclusão bloqueada por relacionamento no banco."
+            ) from erro
+
+        # Registra a exclusão na mesma transação.
+        registrar_log(
+            conexao,
+            acao="excluir_pessoa",
+            usuario_id=ator["id"],
+            usuario_login=ator["login"],
+            entidade="pessoas",
+            entidade_id=pessoa_id,
         )

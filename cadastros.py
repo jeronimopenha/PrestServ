@@ -1,6 +1,7 @@
 import streamlit as st
 
 from database import (
+    conectar,
     cadastrar_pessoa,
     atualizar_pessoa,
     alterar_status_pessoa,
@@ -9,7 +10,10 @@ from database import (
     buscar_foto,
     salvar_foto,
     remover_foto,
+    excluir_pessoa,
 )
+
+from estrutura_v110 import consultar_vinculos
 from fotos import converter_para_jpeg
 
 
@@ -234,3 +238,60 @@ def editar_cadastro():
                 )
                 st.toast("Fotografia removida.")
                 st.rerun()
+
+    st.divider()
+    st.write("### Excluir cadastro")
+
+    # Consulta os relacionamentos existentes.
+    with conectar() as conexao:
+        vinculos = consultar_vinculos(
+            conexao, "pessoas", pessoa_id
+        )
+
+    pode_excluir = len(vinculos) == 0
+
+    if not pode_excluir:
+        st.warning(
+            "Este cadastro possui relacionamentos e não "
+            "pode ser excluído. Utilize a desativação."
+        )
+
+        for vinculo in vinculos:
+            st.caption(
+                f"{vinculo['tabela']}: "
+                f"{vinculo['quantidade']} registro(s)"
+            )
+    else:
+        st.success(
+            "Este cadastro não possui relacionamentos "
+            "e pode ser excluído."
+        )
+
+    confirmar_exclusao = st.checkbox(
+        "Confirmo que desejo excluir definitivamente "
+        "este cadastro.",
+        disabled=not pode_excluir,
+        key=f"confirmar_exclusao_{pessoa_id}",
+    )
+
+    if st.button(
+        "Excluir pessoa",
+        disabled=not pode_excluir or not confirmar_exclusao,
+        key=f"excluir_pessoa_{pessoa_id}",
+        type="secondary",
+    ):
+        try:
+            ator = st.session_state["usuario"]
+
+            excluir_pessoa(
+                pessoa_id,
+                ator_id=ator["id"],
+            )
+
+            st.session_state.pop("cadastro_pessoa_id", None)
+
+            st.toast("Cadastro excluído com sucesso!")
+            st.rerun()
+
+        except ValueError as erro:
+            st.error(str(erro))

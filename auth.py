@@ -1,9 +1,11 @@
 import hashlib
 import hmac
 import secrets
+import sqlite3
 
 from database import conectar, registrar_log
 from common import ITERACOES, TAM_SENHA
+from estrutura_v110 import consultar_vinculos
 
 
 def gerar_hash(senha):
@@ -335,5 +337,93 @@ def definir_status_usuario(usuario_id, ativo, ator_id):
             detalhes={
                 "ativo_anterior": bool(usuario["ativo"]),
                 "ativo_novo": bool(novo_status),
+            },
+        )
+
+
+def excluir_usuario(usuario_id, ator_id):
+    """Exclui um usuário somente quando a operação é permitida."""
+
+    if type(usuario_id) is not int or usuario_id <= 0:
+        raise ValueError("Identificador do usuário inválido.")
+
+    with conectar() as conexao:
+        # Impede alterações concorrentes durante a verificação.
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Verifica se o responsável é um administrador ativo.
+        ator = conexao.execute(
+            """
+            SELECT id, login
+            FROM usuarios
+            WHERE id = ?
+              AND perfil = 'admin'
+              AND ativo = 1
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        if ator is None:
+            raise ValueError("Administrador não autorizado.")
+
+        # Impede a exclusão da própria conta.
+        if usuario_id == ator_id:
+            raise ValueError("Você não pode excluir sua própria conta.")
+
+        # Consulta o cadastro que será excluído.
+        usuario = conexao.execute(
+            """
+            SELECT id, login, perfil, ativo
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (usuario_id,),
+        ).fetchone()
+
+        if usuario is None:
+            raise ValueError("Usuário não encontrado.")
+
+        # Protege o último administrador ativo.
+        if usuario["perfil"] == "admin" and usuario["ativo"]:
+            total_admins = conexao.execute("""
+                SELECT COUNT(*)
+                FROM usuarios
+                WHERE perfil = 'admin'
+                  AND ativo = 1
+                """).fetchone()[0]
+
+            if total_admins <= 1:
+                raise ValueError("O último administrador ativo não pode ser excluído.")
+
+        # Verifica os relacionamentos operacionais.
+        vinculos = consultar_vinculos(conexao, "usuarios", usuario_id)
+
+        if vinculos:
+            raise ValueError(
+                "Este usuário possui relacionamentos com "
+                "outras tabelas. Utilize a desativação."
+            )
+
+        # Exclui o cadastro.
+        try:
+            conexao.execute(
+                "DELETE FROM usuarios WHERE id = ?",
+                (usuario_id,),
+            )
+        except sqlite3.IntegrityError as erro:
+            raise ValueError(
+                "Exclusão bloqueada por relacionamento no banco."
+            ) from erro
+
+        # Registra a operação na mesma transação.
+        registrar_log(
+            conexao,
+            acao="excluir_usuario",
+            usuario_id=ator["id"],
+            usuario_login=ator["login"],
+            entidade="usuarios",
+            entidade_id=usuario_id,
+            detalhes={
+                "login_excluido": usuario["login"],
             },
         )

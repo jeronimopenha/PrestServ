@@ -8,6 +8,7 @@ from auth import (
     atualizar_usuario,
     definir_status_usuario,
     redefinir_senha,
+    excluir_usuario,
 )
 from database import conectar, registrar_log
 from presencas import tela_presencas
@@ -15,6 +16,7 @@ from cadastros import tela_cadastros
 from relatorios import tela_relatorios
 from inicializar_banco import inicializar_banco
 from tela_backups import tela_backups
+from estrutura_v110 import consultar_vinculos
 from common import BASIC_TITTLE, VERSAO, ANO
 
 st.set_page_config(page_title=BASIC_TITTLE, page_icon="🏠", layout="centered")
@@ -193,6 +195,83 @@ def painel_admin():
                             st.success("Senha redefinida!")
                         except ValueError as erro:
                             st.error(str(erro))
+
+                st.divider()
+                st.write("### Excluir usuário")
+
+                ator = usuario_atual()
+
+                with conectar() as conexao:
+                    vinculos = consultar_vinculos(conexao, "usuarios", usuario_id)
+
+                    total_admins = conexao.execute("""
+                        SELECT COUNT(*)
+                        FROM usuarios
+                        WHERE perfil = 'admin' AND ativo = 1
+                        """).fetchone()[0]
+
+                # Identifica os motivos que impedem a exclusão.
+                impedimentos = []
+
+                if ator is None or usuario_id == ator["id"]:
+                    impedimentos.append("Você não pode excluir sua própria conta.")
+
+                if (
+                    usuario["perfil"] == "admin"
+                    and usuario["ativo"]
+                    and total_admins <= 1
+                ):
+                    impedimentos.append(
+                        "O último administrador ativo não pode ser excluído."
+                    )
+
+                if vinculos:
+                    impedimentos.append(
+                        "Este usuário possui relacionamentos " "com outras tabelas."
+                    )
+
+                pode_excluir = not impedimentos
+
+                if pode_excluir:
+                    st.success("Este usuário pode ser excluído definitivamente.")
+                else:
+                    for motivo in impedimentos:
+                        st.warning(motivo)
+
+                    for vinculo in vinculos:
+                        st.caption(
+                            f"{vinculo['tabela']}: "
+                            f"{vinculo['quantidade']} registro(s)"
+                        )
+
+                confirmar = st.checkbox(
+                    "Confirmo que desejo excluir " "definitivamente este usuário.",
+                    disabled=not pode_excluir,
+                    key=f"confirmar_exclusao_usuario_{usuario_id}",
+                )
+
+                if st.button(
+                    "Excluir usuário",
+                    disabled=not pode_excluir or not confirmar,
+                    key=f"excluir_usuario_{usuario_id}",
+                    type="secondary",
+                ):
+                    try:
+                        excluir_usuario(
+                            usuario_id,
+                            ator_id=ator["id"],
+                        )
+
+                        st.toast("Usuário excluído com sucesso!")
+                        st.rerun()
+
+                    except ValueError as erro:
+                        st.error(str(erro))
+                    except sqlite3.IntegrityError:
+                        st.error(
+                            "A exclusão foi bloqueada "
+                            "por um relacionamento no banco."
+                        )
 
     with aba_novo:
         with st.form("novo_usuario", clear_on_submit=True):
