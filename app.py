@@ -18,6 +18,7 @@ from inicializar_banco import inicializar_banco
 from tela_backups import tela_backups
 from estrutura_v110 import consultar_vinculos
 from tela_logs import tela_logs
+from permissoes import PERFIS, tem_permissao
 from common import BASIC_TITTLE, VERSAO, ANO
 
 st.set_page_config(page_title=BASIC_TITTLE, page_icon="🏠", layout="centered")
@@ -71,7 +72,10 @@ def tela_login():
     with st.form("login"):
         login = st.text_input("Usuário")
         senha = st.text_input("Senha", type="password")
-        entrar = st.form_submit_button("Entrar", width="stretch",)
+        entrar = st.form_submit_button(
+            "Entrar",
+            width="stretch",
+        )
 
     if entrar:
         usuario = autenticar(login, senha)
@@ -84,12 +88,18 @@ def tela_login():
 
 
 def painel_admin():
+    ator = usuario_atual()
+
+    if ator is None or not tem_permissao(ator["perfil"], "gerenciar_usuarios"):
+        st.error("Você não tem permissão para administrar usuários.")
+        return
+
     st.subheader("Administração de usuários")
 
     aba_usuarios, aba_novo = st.tabs(["Gerenciar usuários", "Novo usuário"])
 
     with aba_usuarios:
-        usuarios = listar_usuarios()
+        usuarios = listar_usuarios(ator["id"])
 
         if not usuarios:
             st.info("Nenhum usuário cadastrado.")
@@ -118,14 +128,19 @@ def painel_admin():
 
                     login = st.text_input("Login", value=usuario["login"])
 
+                    opcoes_perfis = list(PERFIS.keys())
+
                     perfil = st.selectbox(
                         "Perfil",
-                        ["porteiro", "admin"],
-                        index=(1 if usuario["perfil"] == "admin" else 0),
+                        options=opcoes_perfis,
+                        index=opcoes_perfis.index(usuario["perfil"]),
+                        format_func=lambda p: PERFIS[p],
                     )
 
                     salvar = st.form_submit_button(
-                        "Salvar alterações", type="primary", width="stretch",
+                        "Salvar alterações",
+                        type="primary",
+                        width="stretch",
                     )
 
                 if salvar:
@@ -180,7 +195,8 @@ def painel_admin():
                     )
 
                     redefinir = st.form_submit_button(
-                        "Redefinir senha", width="stretch",
+                        "Redefinir senha",
+                        width="stretch",
                     )
 
                 if redefinir:
@@ -205,10 +221,11 @@ def painel_admin():
                 with conectar() as conexao:
                     vinculos = consultar_vinculos(conexao, "usuarios", usuario_id)
 
-                    total_admins = conexao.execute("""
+                    total_superadmins = conexao.execute("""
                         SELECT COUNT(*)
                         FROM usuarios
-                        WHERE perfil = 'admin' AND ativo = 1
+                        WHERE perfil = 'superadmin'
+                        AND ativo = 1
                         """).fetchone()[0]
 
                 # Identifica os motivos que impedem a exclusão.
@@ -218,12 +235,12 @@ def painel_admin():
                     impedimentos.append("Você não pode excluir sua própria conta.")
 
                 if (
-                    usuario["perfil"] == "admin"
+                    usuario["perfil"] == "superadmin"
                     and usuario["ativo"]
-                    and total_admins <= 1
+                    and total_superadmins <= 1
                 ):
                     impedimentos.append(
-                        "O último administrador ativo não pode ser excluído."
+                        "O último superadministrador ativo não pode ser excluído."
                     )
 
                 if vinculos:
@@ -279,10 +296,18 @@ def painel_admin():
             nome = st.text_input("Nome completo")
             login = st.text_input("Login")
             senha = st.text_input("Senha inicial", type="password")
-            perfil = st.selectbox("Perfil", ["porteiro", "admin"])
+            opcoes_perfis = list(PERFIS.keys())
+
+            perfil = st.selectbox(
+                "Perfil",
+                options=opcoes_perfis,
+                index=opcoes_perfis.index("porteiro"),
+                format_func=lambda p: PERFIS[p],
+            )
 
             salvar = st.form_submit_button(
-                "Cadastrar usuário", width="stretch",
+                "Cadastrar usuário",
+                width="stretch",
             )
 
         if salvar:
@@ -317,9 +342,12 @@ def main():
 
     with st.sidebar:
         st.write(f"**{usuario['nome']}**")
-        st.caption(f"Perfil: {usuario['perfil']}")
+        st.caption(f"Perfil: {PERFIS.get(usuario['perfil'], 'Desconhecido')}")
 
-        if st.button("Sair", width="stretch",):
+        if st.button(
+            "Sair",
+            width="stretch",
+        ):
             with conectar() as conexao:
                 registrar_log(
                     conexao,
@@ -334,37 +362,60 @@ def main():
 
     st.title(BASIC_TITTLE)
 
-    if usuario["perfil"] == "admin":
+    perfil = usuario["perfil"]
+
+    if perfil in ("superadmin", "admin"):
+        paginas = [
+            "Presenças",
+            "Cadastros",
+            "Relatórios",
+        ]
+
+        if tem_permissao(perfil, "consultar_logs"):
+            paginas.append("Logs do sistema")
+
+        if tem_permissao(perfil, "gerar_backup") and tem_permissao(
+            perfil, "restaurar_backup"
+        ):
+            paginas.append("Backup e restauração")
+
+        if tem_permissao(perfil, "gerenciar_usuarios"):
+            paginas.append("Administração")
+
         pagina = st.sidebar.radio(
             "Navegação",
-            [
-                "Presenças",
-                "Cadastros",
-                "Relatórios",
-                "Logs do sistema",
-                "Backup e restauração",
-                "Administração",
-            ],
+            paginas,
         )
 
         if pagina == "Presenças":
             tela_presencas()
+
         elif pagina == "Cadastros":
             tela_cadastros()
+
         elif pagina == "Relatórios":
             tela_relatorios()
+
         elif pagina == "Logs do sistema":
             tela_logs()
+
         elif pagina == "Backup e restauração":
             tela_backups()
-        else:
+
+        elif pagina == "Administração":
             painel_admin()
 
-    elif usuario["perfil"] == "porteiro":
-        tela_presencas()
+    elif perfil == "porteiro":
+            tela_presencas()
+
+    elif perfil in ("secretaria", "consulta"):
+            st.info(
+                "Este perfil está cadastrado, mas suas telas "
+                "ainda estão sendo adaptadas para a V2.0."
+            )
 
     else:
-        st.error("Perfil de usuário inválido.")
+            st.error("Perfil de usuário inválido.")
 
     with st.sidebar:
         with st.container(key="creditos_prestserv"):

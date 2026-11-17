@@ -3,7 +3,7 @@ from contextlib import closing
 from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED, BadZipFile
 from database import conectar, DB_PATH, registrar_log
-from estrutura_v110 import criar_estrutura_logs
+from permissoes import exigir_permissao_usuario
 
 # Limite de proteção contra arquivos excessivamente grandes.
 # Ajustar caso o banco ultrapasse 512 MB.
@@ -37,10 +37,23 @@ COLUNAS_OBRIGATORIAS = {
 }
 
 
-def gerar_backup():
-    """Gera um ZIP em memória com uma cópia consistente do SQLite."""
+def gerar_backup(ator_id):
+    """
+    Gera um ZIP contendo uma cópia consistente do banco.
+
+    Somente superadministradores ativos podem gerar
+    backups completos do PrestServ.
+    """
 
     with closing(conectar()) as origem:
+        # Verifica a permissão diretamente no SQLite.
+        exigir_permissao_usuario(
+            origem,
+            ator_id,
+            "gerar_backup",
+        )
+
+        # Gera uma cópia consistente em memória.
         with closing(sqlite3.connect(":memory:")) as copia:
             origem.backup(copia)
             dados_banco = copia.serialize()
@@ -48,23 +61,36 @@ def gerar_backup():
     buffer = BytesIO()
 
     with ZipFile(
-        buffer, mode="w", compression=ZIP_DEFLATED, compresslevel=6
+        buffer,
+        mode="w",
+        compression=ZIP_DEFLATED,
+        compresslevel=6,
     ) as zip_file:
-        zip_file.writestr("prestserv.db", dados_banco)
+        zip_file.writestr(
+            "prestserv.db",
+            dados_banco,
+        )
 
     return buffer.getvalue()
 
 
 def validar_banco(conexao):
-    resultado = conexao.execute("PRAGMA integrity_check").fetchone()[0]
+    """Valida a integridade e a estrutura de um backup."""
 
-    if resultado != "ok":
+    integridade = conexao.execute("PRAGMA integrity_check").fetchone()[0]
+
+    if integridade != "ok":
         raise ValueError("O arquivo SQLite está corrompido.")
+
+    versao = conexao.execute("PRAGMA user_version").fetchone()[0]
+
+    if versao not in (0, 1, 2):
+        raise ValueError(f"Versão de backup não suportada: {versao}.")
 
     tabelas = {
         linha[0]
         for linha in conexao.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
+            "SELECT name FROM sqlite_master " "WHERE type = 'table'"
         )
     }
 
@@ -82,45 +108,99 @@ def validar_banco(conexao):
     violacoes = conexao.execute("PRAGMA foreign_key_check").fetchall()
 
     if violacoes:
-        raise ValueError("O backup contém referências inválidas entre tabelas.")
+        raise ValueError("O backup contém referências inválidas " "entre tabelas.")
 
-    admins = conexao.execute("""
-        SELECT COUNT(*)
-        FROM usuarios
-        WHERE perfil = 'admin' AND ativo = 1
+    if versao in (0, 1):
+        # Backups anteriores à V2.
+        total = conexao.execute("""
+            SELECT COUNT(*)
+            FROM usuarios
+            WHERE perfil = 'admin'
+              AND ativo = 1
         """).fetchone()[0]
 
-    if admins == 0:
-        raise ValueError("O backup não contém um administrador ativo.")
+        if total == 0:
+            raise ValueError("O backup antigo não contém " "um administrador ativo.")
+
+    else:
+        # Backups da V2.
+        if "logs" not in tabelas:
+            raise ValueError("Backup V2 sem tabela de auditoria.")
+
+        total = conexao.execute("""
+            SELECT COUNT(*)
+            FROM usuarios
+            WHERE perfil = 'superadmin'
+              AND ativo = 1
+        """).fetchone()[0]
+
+        if total == 0:
+            raise ValueError("O backup V2 não contém " "um superadministrador ativo.")
+
+    return versao
 
 
-def restaurar_backup(conteudo_zip, ator_id, ator_login):
+def restaurar_backup(conteudo_zip, ator_id, ator_login=None):
     """
-    Restaura um banco enviado em ZIP.
+    Restaura um backup V2 do PrestServ.
 
-    Executar apenas durante manutenção, sem outros
-    usuários utilizando o PrestServ.
+    Exige superadministrador ativo e preserva seu
+    acesso ao sistema após a restauração.
+
+    Executar somente durante manutenção, sem
+    outros usuários utilizando o sistema.
     """
+
+    if not isinstance(conteudo_zip, (bytes, bytearray)):
+        raise ValueError("Conteúdo do backup inválido.")
 
     if len(conteudo_zip) > TAMANHO_MAXIMO:
         raise ValueError("O arquivo ZIP é grande demais.")
 
+    # 1. Verifica a autorização no banco atual.
+    with closing(conectar()) as atual:
+        exigir_permissao_usuario(
+            atual,
+            ator_id,
+            "restaurar_backup",
+        )
+
+        versao_atual = atual.execute("PRAGMA user_version").fetchone()[0]
+
+        if versao_atual != 2:
+            raise RuntimeError(
+                "A restauração V2 exige um banco " "atualizado para o esquema 2."
+            )
+
+        ator = atual.execute(
+            """
+            SELECT login, senha_hash
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        login_atual = ator[0]
+        hash_atual = ator[1]
+
+    # 2. Extrai e valida o ZIP.
     try:
-        with ZipFile(BytesIO(conteudo_zip), "r") as zip_file:
-            arquivos = zip_file.infolist()
+        with ZipFile(BytesIO(conteudo_zip), "r") as arquivo:
+            entradas = arquivo.infolist()
 
             if (
-                len(arquivos) != 1
-                or arquivos[0].filename != "prestserv.db"
-                or arquivos[0].is_dir()
+                len(entradas) != 1
+                or entradas[0].filename != "prestserv.db"
+                or entradas[0].is_dir()
             ):
                 raise ValueError("O ZIP deve conter somente prestserv.db.")
 
-            if arquivos[0].file_size > TAMANHO_MAXIMO:
+            if entradas[0].file_size > TAMANHO_MAXIMO:
                 raise ValueError("O banco descompactado é grande demais.")
 
-            with zip_file.open(arquivos[0]) as arquivo:
-                dados_banco = arquivo.read(TAMANHO_MAXIMO + 1)
+            with arquivo.open(entradas[0]) as entrada:
+                dados_banco = entrada.read(TAMANHO_MAXIMO + 1)
 
             if len(dados_banco) > TAMANHO_MAXIMO:
                 raise ValueError("O banco ultrapassa o tamanho permitido.")
@@ -131,31 +211,71 @@ def restaurar_backup(conteudo_zip, ator_id, ator_login):
     if not dados_banco.startswith(b"SQLite format 3\x00"):
         raise ValueError("O ZIP não contém um banco SQLite válido.")
 
+    # 3. Carrega e valida o banco em memória.
     with closing(sqlite3.connect(":memory:")) as origem:
         try:
             origem.deserialize(dados_banco)
-            validar_banco(origem)
+            versao_backup = validar_banco(origem)
+
         except sqlite3.DatabaseError as erro:
-            raise ValueError("O banco do backup está inválido ou corrompido.") from erro
+            raise ValueError("O banco do backup está inválido.") from erro
 
-        # Atualiza a estrutura de backups antigos.
-        criar_estrutura_logs(origem)
+        if versao_backup != 2:
+            raise ValueError(
+                "Este backup pertence a uma versão antiga. "
+                "A migração deve ser realizada antes "
+                "da restauração."
+            )
 
-        # Registra quem solicitou a restauração.
+        # 4. Confirma que o responsável continuará
+        # conseguindo entrar depois da restauração.
+        usuario_backup = origem.execute(
+            """
+            SELECT login, senha_hash, perfil, ativo
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        if (
+            usuario_backup is None
+            or usuario_backup[0] != login_atual
+            or usuario_backup[1] != hash_atual
+            or usuario_backup[2] != "superadmin"
+            or usuario_backup[3] != 1
+        ):
+            raise ValueError(
+                "A restauração foi bloqueada porque "
+                "o superadministrador responsável "
+                "perderia seu acesso atual. "
+                "Utilize um procedimento de recuperação "
+                "administrativa."
+            )
+
+        # 5. Registra a restauração no banco
+        # que será efetivamente restaurado.
         registrar_log(
             origem,
             acao="restaurar_backup",
-            usuario_login=ator_login,
+            usuario_id=ator_id,
+            usuario_login=login_atual,
             entidade="sistema",
             detalhes={
-                "usuario_id_original": ator_id,
+                "versao_backup": versao_backup,
                 "tamanho_zip_bytes": len(conteudo_zip),
             },
         )
 
-        # Confirma o log antes de copiar o banco.
         origem.commit()
 
-        # Somente executar sem outros usuários conectados.
+        # 6. Revalida o operador e substitui o banco.
+        # Deve ser executado sem outras sessões ativas.
         with closing(conectar()) as destino:
+            exigir_permissao_usuario(
+                destino,
+                ator_id,
+                "restaurar_backup",
+            )
+
             origem.backup(destino)

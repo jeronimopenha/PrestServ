@@ -25,8 +25,8 @@ def tela_backups():
 
         if st.button("Preparar backup"):
             try:
-                conteudo = gerar_backup()
                 ator = st.session_state["usuario"]
+                conteudo = gerar_backup(ator_id=ator["id"])
 
                 with conectar() as conexao:
                     registrar_log(

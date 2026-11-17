@@ -1,8 +1,9 @@
 import sqlite3
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
+from permissoes import exigir_permissao_usuario
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "dados" / "PrestServ.db"
@@ -162,10 +163,55 @@ def salvar_atendimento(
     - Com serviços: cria ou atualiza a presença.
     - Sem serviços: remove a presença, se existir.
     """
-    data = data or data_atual()
+
+    data = data_atual() if data is None else data
     servicos_ids = set(servicos_ids)
 
+    # Valida a data informada.
+    try:
+        if not isinstance(data, str):
+            raise ValueError()
+
+        data_validada = date.fromisoformat(data)
+
+        if data != data_validada.isoformat():
+            raise ValueError()
+
+    except ValueError:
+        raise ValueError("Data de atendimento inválida.") from None
+
+    hoje = date.fromisoformat(data_atual())
+
+    # Não permite registrar atendimentos futuros.
+    if data_validada > hoje:
+        raise ValueError("Não é permitido registrar atendimentos futuros.")
+
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Verifica se o operador está ativo e autorizado.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "registrar_atendimento",
+        )
+
+        # Somente administradores podem alterar datas.
+        if data_validada != hoje:
+            exigir_permissao_usuario(
+                conexao,
+                ator_id,
+                "alterar_data_atendimento",
+            )
+
+        # Obtém o login verdadeiro para a auditoria.
+        ator = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        ator_login = ator["login"]
+
         pessoa = conexao.execute(
             """
             SELECT id
@@ -696,19 +742,12 @@ def listar_logs(
 
     with conectar() as conexao:
         # Verifica a permissão do operador.
-        ator = conexao.execute(
-            """
-            SELECT id
-            FROM usuarios
-            WHERE id = ?
-              AND perfil = 'admin'
-              AND ativo = 1
-            """,
-            (ator_id,),
-        ).fetchone()
-
-        if ator is None:
-            raise PermissionError("Somente administradores podem consultar os logs.")
+        # Verifica a autorização diretamente no banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_logs",
+        )
 
         filtros = []
         parametros = []
@@ -763,25 +802,18 @@ def listar_acoes_logs(ator_id):
     """Lista as ações existentes nos logs."""
 
     with conectar() as conexao:
-        ator = conexao.execute(
-            """
-            SELECT id
-            FROM usuarios
-            WHERE id = ?
-              AND perfil = 'admin'
-              AND ativo = 1
-            """,
-            (ator_id,),
-        ).fetchone()
-
-        if ator is None:
-            raise PermissionError("Somente administradores podem consultar os logs.")
+        # Somente superadministradores ativos.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_logs",
+        )
 
         registros = conexao.execute("""
             SELECT DISTINCT acao
             FROM logs
             ORDER BY acao COLLATE NOCASE
-            """).fetchall()
+        """).fetchall()
 
     return [registro["acao"] for registro in registros]
 
@@ -807,19 +839,22 @@ def excluir_logs(ids, ator_id):
         conexao.execute("BEGIN IMMEDIATE")
 
         # Confere se o operador é administrador ativo.
+        # Somente superadministradores ativos podem excluir logs.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "excluir_logs",
+        )
+
+        # Identifica o responsável para registrar a auditoria.
         ator = conexao.execute(
             """
             SELECT id, login
             FROM usuarios
             WHERE id = ?
-              AND perfil = 'admin'
-              AND ativo = 1
             """,
             (ator_id,),
         ).fetchone()
-
-        if ator is None:
-            raise PermissionError("Somente administradores podem excluir logs.")
 
         marcadores = ",".join("?" for _ in ids)
 
