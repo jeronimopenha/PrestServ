@@ -44,9 +44,9 @@ def criar_estrutura_logs(conexao: sqlite3.Connection) -> None:
     """Cria somente o que não existe; mantém dados já cadastrados."""
     versao = conexao.execute("PRAGMA user_version").fetchone()[0]
 
-    if versao > 1:
-        raise RuntimeError(f"Versão do esquema ({versao}) superior à suportada (1).")
-
+    if versao > 2:
+        raise RuntimeError(f"Versão do esquema ({versao}) superior à suportada (2).")
+    
     with conexao:
         conexao.execute("""
             CREATE TABLE IF NOT EXISTS logs (

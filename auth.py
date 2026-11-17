@@ -6,6 +6,7 @@ import sqlite3
 from database import conectar, registrar_log
 from common import ITERACOES, TAM_SENHA
 from estrutura_v110 import consultar_vinculos
+from permissoes import PERFIS, exigir_permissao_usuario
 
 
 def gerar_hash(senha):
@@ -88,7 +89,15 @@ def autenticar(login, senha):
 
 
 def criar_usuario(nome, login, senha, perfil, ator_id=None, ator_login=None):
-    if perfil not in ("admin", "porteiro"):
+    """
+    Cadastra um usuário.
+
+    - Instalação inicial: permite criar o primeiro admin.
+    - Sistema em uso: exige um superadministrador ativo.
+    - Registra a operação na auditoria.
+    """
+
+    if perfil not in PERFIS:
         raise ValueError("Perfil inválido.")
 
     nome = nome.strip()
@@ -100,9 +109,42 @@ def criar_usuario(nome, login, senha, perfil, ator_id=None, ator_login=None):
     senha_hash = gerar_hash(senha)
 
     with conectar() as conexao:
+        # Protege a verificação e a inclusão na mesma transação.
+        conexao.execute("BEGIN IMMEDIATE")
+
+        total_usuarios = conexao.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
+
+        if total_usuarios == 0:
+            # Compatibilidade com criar_admin.py.
+            # A primeira conta é criada pelo procedimento de
+            # instalação, antes da configuração do superadmin.
+            if ator_id is not None or perfil != "admin":
+                raise PermissionError(
+                    "A primeira conta deve ser um administrador inicial."
+                )
+
+            login_responsavel = "sistema"
+
+        else:
+            # Nunca confia apenas no perfil da sessão.
+            exigir_permissao_usuario(
+                conexao,
+                ator_id,
+                "gerenciar_usuarios",
+            )
+
+            ator = conexao.execute(
+                "SELECT login FROM usuarios WHERE id = ?",
+                (ator_id,),
+            ).fetchone()
+
+            login_responsavel = ator["login"]
+
         cursor = conexao.execute(
             """
-            INSERT INTO usuarios (nome, login, senha_hash, perfil)
+            INSERT INTO usuarios (
+                nome, login, senha_hash, perfil
+            )
             VALUES (?, ?, ?, ?)
             """,
             (nome, login, senha_hash, perfil),
@@ -114,7 +156,7 @@ def criar_usuario(nome, login, senha, perfil, ator_id=None, ator_login=None):
             conexao,
             acao="criar_usuario",
             usuario_id=ator_id,
-            usuario_login=ator_login or "sistema",
+            usuario_login=login_responsavel,
             entidade="usuarios",
             entidade_id=novo_id,
             detalhes={
@@ -126,35 +168,64 @@ def criar_usuario(nome, login, senha, perfil, ator_id=None, ator_login=None):
         return novo_id
 
 
-def listar_usuarios():
+def listar_usuarios(ator_id):
+    """
+    Lista as contas cadastradas no PrestServ.
+
+    Somente superadministradores ativos podem consultar
+    a relação de usuários.
+
+    Não retorna senhas nem hashes de senhas.
+    """
+
     with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerenciar_usuarios",
+        )
+
         registros = conexao.execute("""
-            SELECT id, nome, login, perfil, ativo, criado_em
+            SELECT
+                id,
+                nome,
+                login,
+                perfil,
+                ativo,
+                criado_em
             FROM usuarios
-            ORDER BY nome
+            ORDER BY nome COLLATE NOCASE, id
             """).fetchall()
 
     return [dict(registro) for registro in registros]
 
 
 def redefinir_senha(usuario_id, nova_senha, ator_id):
+    """
+    Redefine a senha de um usuário.
+
+    Somente superadministradores ativos podem
+    executar esta operação.
+    """
+
     senha_hash = gerar_hash(nova_senha)
 
     with conectar() as conexao:
-        # Identifica e valida o administrador responsável.
+        # Garante que a autorização e a alteração
+        # aconteçam dentro da mesma transação.
+        conexao.execute("BEGIN IMMEDIATE")
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerenciar_usuarios",
+        )
+
         ator = conexao.execute(
-            """
-            SELECT login, perfil, ativo
-            FROM usuarios
-            WHERE id = ?
-            """,
+            "SELECT login FROM usuarios WHERE id = ?",
             (ator_id,),
         ).fetchone()
 
-        if ator is None or ator["perfil"] != "admin" or not ator["ativo"]:
-            raise ValueError("Administrador responsável inválido.")
-
-        # Atualiza a senha.
         cursor = conexao.execute(
             """
             UPDATE usuarios
@@ -167,7 +238,7 @@ def redefinir_senha(usuario_id, nova_senha, ator_id):
         if cursor.rowcount == 0:
             raise ValueError("Usuário não encontrado.")
 
-        # Registra a operação, sem armazenar senhas.
+        # Nunca armazena senhas ou hashes nos logs.
         registrar_log(
             conexao,
             acao="redefinir_senha_usuario",
@@ -179,6 +250,15 @@ def redefinir_senha(usuario_id, nova_senha, ator_id):
 
 
 def atualizar_usuario(usuario_id, nome, login, perfil, ator_id):
+    """
+    Atualiza os dados e o papel de um usuário.
+
+    Somente superadministradores ativos podem executar
+    esta operação.
+
+    Protege a própria conta e o último superadmin ativo.
+    """
+
     nome = nome.strip()
     login = login.strip()
 
@@ -188,10 +268,24 @@ def atualizar_usuario(usuario_id, nome, login, perfil, ator_id):
     if not login:
         raise ValueError("O login é obrigatório.")
 
-    if perfil not in ("admin", "porteiro"):
+    if perfil not in PERFIS:
         raise ValueError("Perfil inválido.")
 
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Verifica a autorização diretamente no banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerenciar_usuarios",
+        )
+
+        ator = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
         usuario = conexao.execute(
             """
             SELECT id, nome, login, perfil, ativo
@@ -204,45 +298,38 @@ def atualizar_usuario(usuario_id, nome, login, perfil, ator_id):
         if usuario is None:
             raise ValueError("Usuário não encontrado.")
 
-        if usuario_id == ator_id and perfil != "admin":
+        # Impede que o superadmin retire seus
+        # próprios privilégios.
+        if usuario_id == ator_id and perfil != "superadmin":
             raise ValueError(
-                "Você não pode remover seu próprio perfil de administrador."
+                "Você não pode remover seu próprio " "perfil de superadministrador."
             )
 
-        if usuario["perfil"] == "admin" and usuario["ativo"] and perfil != "admin":
+        # Protege o último superadministrador ativo.
+        if (
+            usuario["perfil"] == "superadmin"
+            and usuario["ativo"]
+            and perfil != "superadmin"
+        ):
             total = conexao.execute("""
                 SELECT COUNT(*)
                 FROM usuarios
-                WHERE perfil = 'admin' AND ativo = 1
+                WHERE perfil = 'superadmin'
+                  AND ativo = 1
                 """).fetchone()[0]
 
             if total <= 1:
-                raise ValueError("O último administrador ativo não pode ser rebaixado.")
-
-        ator = conexao.execute(
-            "SELECT login FROM usuarios WHERE id = ?",
-            (ator_id,),
-        ).fetchone()
-
-        if ator is None:
-            raise ValueError("Administrador responsável não encontrado.")
-
-        conexao.execute(
-            """
-            UPDATE usuarios
-            SET nome = ?, login = ?, perfil = ?
-            WHERE id = ?
-            """,
-            (nome, login, perfil, usuario_id),
-        )
-
-        alteracoes = {}
+                raise ValueError(
+                    "O último superadministrador ativo " "não pode ser rebaixado."
+                )
 
         novos_dados = {
             "nome": nome,
             "login": login,
             "perfil": perfil,
         }
+
+        alteracoes = {}
 
         for campo, novo_valor in novos_dados.items():
             valor_anterior = usuario[campo]
@@ -253,23 +340,60 @@ def atualizar_usuario(usuario_id, nome, login, perfil, ator_id):
                     "depois": novo_valor,
                 }
 
-        if alteracoes:
-            registrar_log(
-                conexao,
-                acao="atualizar_usuario",
-                usuario_id=ator_id,
-                usuario_login=ator["login"],
-                entidade="usuarios",
-                entidade_id=usuario_id,
-                detalhes={"alteracoes": alteracoes},
-            )
+        # Não grava nem registra log se nada mudou.
+        if not alteracoes:
+            return
+
+        conexao.execute(
+            """
+            UPDATE usuarios
+            SET nome = ?,
+                login = ?,
+                perfil = ?
+            WHERE id = ?
+            """,
+            (nome, login, perfil, usuario_id),
+        )
+
+        registrar_log(
+            conexao,
+            acao="atualizar_usuario",
+            usuario_id=ator_id,
+            usuario_login=ator["login"],
+            entidade="usuarios",
+            entidade_id=usuario_id,
+            detalhes={"alteracoes": alteracoes},
+        )
 
 
 def definir_status_usuario(usuario_id, ativo, ator_id):
-    if usuario_id == ator_id and not ativo:
-        raise ValueError("Você não pode desativar sua própria conta.")
+    """
+    Ativa ou desativa uma conta de usuário.
+
+    Somente superadministradores ativos podem executar
+    esta operação.
+
+    Impede a autodesativação e protege o último
+    superadministrador ativo.
+    """
+
+    novo_status = int(bool(ativo))
 
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Valida o operador diretamente no banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerenciar_usuarios",
+        )
+
+        ator = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
         usuario = conexao.execute(
             """
             SELECT id, perfil, ativo
@@ -282,34 +406,28 @@ def definir_status_usuario(usuario_id, ativo, ator_id):
         if usuario is None:
             raise ValueError("Usuário não encontrado.")
 
-        if usuario["perfil"] == "admin" and usuario["ativo"] and not ativo:
+        # Impede desativar a própria conta.
+        if usuario_id == ator_id and not novo_status:
+            raise ValueError("Você não pode desativar sua própria conta.")
+
+        # Protege o último superadministrador ativo.
+        if usuario["perfil"] == "superadmin" and usuario["ativo"] and not novo_status:
             total = conexao.execute("""
                 SELECT COUNT(*)
                 FROM usuarios
-                WHERE perfil = 'admin' AND ativo = 1
+                WHERE perfil = 'superadmin'
+                  AND ativo = 1
                 """).fetchone()[0]
 
             if total <= 1:
                 raise ValueError(
-                    "O último administrador ativo não pode ser desativado."
+                    "O último superadministrador ativo " "não pode ser desativado."
                 )
 
-        novo_status = int(bool(ativo))
-
-        # Não registra alterações quando o status continua igual.
+        # Nenhuma alteração necessária.
         if usuario["ativo"] == novo_status:
             return
 
-        # Identifica o administrador responsável.
-        ator = conexao.execute(
-            "SELECT login FROM usuarios WHERE id = ?",
-            (ator_id,),
-        ).fetchone()
-
-        if ator is None:
-            raise ValueError("Administrador responsável não encontrado.")
-
-        # Atualiza o status.
         conexao.execute(
             """
             UPDATE usuarios
@@ -319,10 +437,10 @@ def definir_status_usuario(usuario_id, ativo, ator_id):
             (novo_status, usuario_id),
         )
 
-        # Registra a operação na mesma transação.
+        # Auditoria na mesma transação.
         registrar_log(
             conexao,
-            acao="ativar_usuario" if novo_status else "desativar_usuario",
+            acao=("ativar_usuario" if novo_status else "desativar_usuario"),
             usuario_id=ator_id,
             usuario_login=ator["login"],
             entidade="usuarios",
@@ -335,35 +453,42 @@ def definir_status_usuario(usuario_id, ativo, ator_id):
 
 
 def excluir_usuario(usuario_id, ator_id):
-    """Exclui um usuário somente quando a operação é permitida."""
+    """
+    Exclui um usuário somente quando autorizado.
+
+    Somente superadministradores ativos podem excluir.
+    Preserva a proteção contra relacionamentos e registra
+    a exclusão na auditoria.
+    """
 
     if type(usuario_id) is not int or usuario_id <= 0:
         raise ValueError("Identificador do usuário inválido.")
 
     with conectar() as conexao:
-        # Impede alterações concorrentes durante a verificação.
+        # Evita alterações concorrentes entre a verificação
+        # das regras e a exclusão.
         conexao.execute("BEGIN IMMEDIATE")
 
-        # Verifica se o responsável é um administrador ativo.
+        # Autoriza somente superadministradores ativos.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerenciar_usuarios",
+        )
+
         ator = conexao.execute(
             """
             SELECT id, login
             FROM usuarios
             WHERE id = ?
-              AND perfil = 'admin'
-              AND ativo = 1
             """,
             (ator_id,),
         ).fetchone()
-
-        if ator is None:
-            raise ValueError("Administrador não autorizado.")
 
         # Impede a exclusão da própria conta.
         if usuario_id == ator_id:
             raise ValueError("Você não pode excluir sua própria conta.")
 
-        # Consulta o cadastro que será excluído.
         usuario = conexao.execute(
             """
             SELECT id, login, perfil, ativo
@@ -376,20 +501,27 @@ def excluir_usuario(usuario_id, ator_id):
         if usuario is None:
             raise ValueError("Usuário não encontrado.")
 
-        # Protege o último administrador ativo.
-        if usuario["perfil"] == "admin" and usuario["ativo"]:
-            total_admins = conexao.execute("""
+        # Protege o último superadministrador ativo.
+        if usuario["perfil"] == "superadmin" and usuario["ativo"]:
+            total = conexao.execute("""
                 SELECT COUNT(*)
                 FROM usuarios
-                WHERE perfil = 'admin'
+                WHERE perfil = 'superadmin'
                   AND ativo = 1
                 """).fetchone()[0]
 
-            if total_admins <= 1:
-                raise ValueError("O último administrador ativo não pode ser excluído.")
+            if total <= 1:
+                raise ValueError(
+                    "O último superadministrador ativo " "não pode ser excluído."
+                )
 
-        # Verifica os relacionamentos operacionais.
-        vinculos = consultar_vinculos(conexao, "usuarios", usuario_id)
+        # Preserva a proteção da V1.1 contra exclusões
+        # de usuários com relacionamentos operacionais.
+        vinculos = consultar_vinculos(
+            conexao,
+            "usuarios",
+            usuario_id,
+        )
 
         if vinculos:
             raise ValueError(
@@ -397,18 +529,21 @@ def excluir_usuario(usuario_id, ator_id):
                 "outras tabelas. Utilize a desativação."
             )
 
-        # Exclui o cadastro.
         try:
-            conexao.execute(
+            cursor = conexao.execute(
                 "DELETE FROM usuarios WHERE id = ?",
                 (usuario_id,),
             )
+
         except sqlite3.IntegrityError as erro:
             raise ValueError(
                 "Exclusão bloqueada por relacionamento no banco."
             ) from erro
 
-        # Registra a operação na mesma transação.
+        if cursor.rowcount != 1:
+            raise RuntimeError("A exclusão não foi concluída.")
+
+        # Preserva a auditoria, na mesma transação.
         registrar_log(
             conexao,
             acao="excluir_usuario",
@@ -418,5 +553,6 @@ def excluir_usuario(usuario_id, ator_id):
             entidade_id=usuario_id,
             detalhes={
                 "login_excluido": usuario["login"],
+                "perfil_excluido": usuario["perfil"],
             },
         )
