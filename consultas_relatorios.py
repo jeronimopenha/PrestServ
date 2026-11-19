@@ -1,5 +1,7 @@
 import pandas as pd
 from database import conectar
+from datetime import date
+from permissoes import exigir_permissao_usuario
 
 
 def consultar(sql, parametros=()):
@@ -7,98 +9,223 @@ def consultar(sql, parametros=()):
         return pd.read_sql_query(sql, conexao, params=parametros)
 
 
-def presencas_detalhadas(inicio, fim, pessoa_id=None):
-    filtro = ""
-    params = [inicio, fim]
+def presencas_detalhadas(inicio, fim, pessoa_id=None, ator_id=None):
+    """
+    Consulta atendimentos individuais de um período.
 
-    if pessoa_id is not None:
-        filtro = "AND p.pessoa_id = ?"
-        params.append(pessoa_id)
+    Exige permissão para relatórios pessoais,
+    mesmo quando nenhuma pessoa específica é filtrada.
+    """
 
-    return consultar(
-        f"""
-        SELECT
-            p.id AS presenca_id,
-            p.data AS data,
-            pe.id AS pessoa_id,
-            pe.nome AS pessoa,
-            COALESCE(
-                GROUP_CONCAT(s.nome, ', '),
-                ''
-            ) AS servicos,
-            COUNT(s.id) AS quantidade_servicos,
-            p.criado_em AS registrado_em
-        FROM presencas p
-        JOIN pessoas pe ON pe.id = p.pessoa_id
-        LEFT JOIN presenca_servicos ps
-            ON ps.presenca_id = p.id
-        LEFT JOIN servicos s
-            ON s.id = ps.servico_id
-        WHERE p.data BETWEEN ? AND ?
-        {filtro}
-        GROUP BY
-            p.id, p.data, pe.id, pe.nome, p.criado_em
-        ORDER BY p.data DESC, pe.nome
-        """,
-        params,
-    )
+    with conectar() as conexao:
+        # Verifica a autorização diretamente no SQLite.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "relatorios_pessoais",
+        )
+
+        # Valida as datas do período.
+        try:
+            if not isinstance(inicio, str) or not isinstance(fim, str):
+                raise ValueError()
+
+            data_inicio = date.fromisoformat(inicio)
+            data_fim = date.fromisoformat(fim)
+
+            if inicio != data_inicio.isoformat() or fim != data_fim.isoformat():
+                raise ValueError()
+
+        except ValueError:
+            raise ValueError("Período do relatório inválido.") from None
+
+        if data_inicio > data_fim:
+            raise ValueError("A data inicial não pode superar a final.")
+
+        parametros = [inicio, fim]
+        filtro = ""
+
+        if pessoa_id is not None:
+            if type(pessoa_id) is not int or pessoa_id <= 0:
+                raise ValueError("Identificador da pessoa inválido.")
+
+            filtro = "AND p.pessoa_id = ?"
+            parametros.append(pessoa_id)
+
+        # A consulta usa a mesma conexão em que
+        # verificamos a autorização.
+        resultado = pd.read_sql_query(
+            f"""
+            SELECT
+                p.id AS presenca_id,
+                p.data AS data,
+                pe.id AS pessoa_id,
+                pe.nome AS pessoa,
+                COALESCE(
+                    GROUP_CONCAT(s.nome, ', '),
+                    ''
+                ) AS servicos,
+                COUNT(s.id) AS quantidade_servicos,
+                p.criado_em AS registrado_em
+            FROM presencas p
+            JOIN pessoas pe ON pe.id = p.pessoa_id
+            LEFT JOIN presenca_servicos ps
+                ON ps.presenca_id = p.id
+            LEFT JOIN servicos s
+                ON s.id = ps.servico_id
+            WHERE p.data BETWEEN ? AND ?
+            {filtro}
+            GROUP BY
+                p.id, p.data, pe.id, pe.nome, p.criado_em
+            ORDER BY p.data DESC, pe.nome
+            """,
+            conexao,
+            params=parametros,
+        )
+
+    return resultado
 
 
-def servicos_por_tipo(inicio, fim, pessoa_id=None):
-    filtro = ""
-    params = [inicio, fim]
+def servicos_por_tipo(inicio, fim, pessoa_id=None, ator_id=None):
+    """
+    Retorna a quantidade de atendimentos por tipo de serviço.
 
-    if pessoa_id is not None:
-        filtro = "AND p.pessoa_id = ?"
-        params.append(pessoa_id)
+    Relatórios gerais: superadmin, admin e consulta.
+    Filtro individual: somente superadmin e admin.
+    """
 
-    return consultar(
-        f"""
-        SELECT
-            s.nome AS servico,
-            COUNT(*) AS quantidade
-        FROM presenca_servicos ps
-        JOIN servicos s ON s.id = ps.servico_id
-        JOIN presencas p ON p.id = ps.presenca_id
-        WHERE p.data BETWEEN ? AND ?
-        {filtro}
-        GROUP BY s.id, s.nome
-        ORDER BY quantidade DESC, s.nome
-        """,
-        params,
-    )
+    with conectar() as conexao:
+        # Verifica a permissão antes de consultar os dados.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "relatorios_gerais",
+        )
+
+        if pessoa_id is not None:
+            exigir_permissao_usuario(
+                conexao,
+                ator_id,
+                "relatorios_pessoais",
+            )
+
+            if type(pessoa_id) is not int or pessoa_id <= 0:
+                raise ValueError("Identificador da pessoa inválido.")
+
+        # Valida o período.
+        try:
+            if not isinstance(inicio, str) or not isinstance(fim, str):
+                raise ValueError()
+
+            data_inicio = date.fromisoformat(inicio)
+            data_fim = date.fromisoformat(fim)
+
+            if inicio != data_inicio.isoformat() or fim != data_fim.isoformat():
+                raise ValueError()
+
+        except ValueError:
+            raise ValueError("Período do relatório inválido.") from None
+
+        if data_inicio > data_fim:
+            raise ValueError("A data inicial não pode superar a final.")
+
+        parametros = [inicio, fim]
+        filtro = ""
+
+        if pessoa_id is not None:
+            filtro = "AND p.pessoa_id = ?"
+            parametros.append(pessoa_id)
+
+        resultado = pd.read_sql_query(
+            f"""
+            SELECT
+                s.nome AS servico,
+                COUNT(*) AS quantidade
+            FROM presenca_servicos ps
+            JOIN servicos s
+                ON s.id = ps.servico_id
+            JOIN presencas p
+                ON p.id = ps.presenca_id
+            WHERE p.data BETWEEN ? AND ?
+            {filtro}
+            GROUP BY s.id, s.nome
+            ORDER BY quantidade DESC, s.nome
+            """,
+            conexao,
+            params=parametros,
+        )
+
+    return resultado
 
 
-def frequencia_pessoas(inicio, fim, pessoa_id=None):
-    filtro = ""
-    params = [inicio, fim]
+def frequencia_pessoas(inicio, fim, pessoa_id=None, ator_id=None):
+    """
+    Retorna a frequência individual das pessoas atendidas.
 
-    if pessoa_id is not None:
-        filtro = "AND pe.id = ?"
-        params.append(pessoa_id)
+    Acesso exclusivo a superadministradores e
+    administradores, mesmo sem filtro por pessoa.
+    """
 
-    return consultar(
-        f"""
-        SELECT
-            pe.id AS pessoa_id,
-            pe.nome AS pessoa,
-            COUNT(p.id) AS presencas,
-            MIN(p.data) AS primeira_no_periodo,
-            MAX(p.data) AS ultima_no_periodo,
-            COALESCE(SUM((
-                SELECT COUNT(*)
-                FROM presenca_servicos ps
-                WHERE ps.presenca_id = p.id
-            )), 0) AS servicos
-        FROM pessoas pe
-        JOIN presencas p ON p.pessoa_id = pe.id
-        WHERE p.data BETWEEN ? AND ?
-        {filtro}
-        GROUP BY pe.id, pe.nome
-        ORDER BY presencas DESC, pe.nome
-        """,
-        params,
-    )
+    with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "relatorios_pessoais",
+        )
+
+        # Valida o período.
+        try:
+            if not isinstance(inicio, str) or not isinstance(fim, str):
+                raise ValueError()
+
+            data_inicio = date.fromisoformat(inicio)
+            data_fim = date.fromisoformat(fim)
+
+            if inicio != data_inicio.isoformat() or fim != data_fim.isoformat():
+                raise ValueError()
+
+        except ValueError:
+            raise ValueError("Período do relatório inválido.") from None
+
+        if data_inicio > data_fim:
+            raise ValueError("A data inicial não pode superar a final.")
+
+        parametros = [inicio, fim]
+        filtro = ""
+
+        if pessoa_id is not None:
+            if type(pessoa_id) is not int or pessoa_id <= 0:
+                raise ValueError("Identificador da pessoa inválido.")
+
+            filtro = "AND pe.id = ?"
+            parametros.append(pessoa_id)
+
+        resultado = pd.read_sql_query(
+            f"""
+            SELECT
+                pe.id AS pessoa_id,
+                pe.nome AS pessoa,
+                COUNT(p.id) AS presencas,
+                MIN(p.data) AS primeira_no_periodo,
+                MAX(p.data) AS ultima_no_periodo,
+                COALESCE(SUM((
+                    SELECT COUNT(*)
+                    FROM presenca_servicos ps
+                    WHERE ps.presenca_id = p.id
+                )), 0) AS servicos
+            FROM pessoas pe
+            JOIN presencas p
+                ON p.pessoa_id = pe.id
+            WHERE p.data BETWEEN ? AND ?
+            {filtro}
+            GROUP BY pe.id, pe.nome
+            ORDER BY presencas DESC, pe.nome
+            """,
+            conexao,
+            params=parametros,
+        )
+
+    return resultado
 
 
 def evolucao_diaria(inicio, fim, pessoa_id=None):
@@ -200,24 +327,77 @@ def qualidade_cadastros():
         """)
 
 
-def indicadores(inicio, fim, pessoa_id=None):
-    df = presencas_detalhadas(inicio, fim, pessoa_id)
+def indicadores(inicio, fim, pessoa_id=None, ator_id=None):
+    """
+    Calcula indicadores de atendimento.
 
-    if df.empty:
-        return {
-            "pessoas": 0,
-            "presencas": 0,
-            "servicos": 0,
-            "dias_registrados": 0,
-            "media_por_dia": 0.0,
-        }
+    Relatórios gerais:
+        superadmin, admin e consulta.
 
-    dias = df["data"].nunique()
+    Indicadores filtrados por pessoa:
+        somente superadmin e admin.
+    """
+
+    with conectar() as conexao:
+        exigir_permissao_usuario(conexao, ator_id, "relatorios_gerais")
+
+        if pessoa_id is not None:
+            exigir_permissao_usuario(conexao, ator_id, "relatorios_pessoais")
+
+            if type(pessoa_id) is not int or pessoa_id <= 0:
+                raise ValueError("Identificador da pessoa inválido.")
+
+        # Validação do período.
+        try:
+            if not isinstance(inicio, str) or not isinstance(fim, str):
+                raise ValueError()
+
+            data_inicio = date.fromisoformat(inicio)
+            data_fim = date.fromisoformat(fim)
+
+            if inicio != data_inicio.isoformat() or fim != data_fim.isoformat():
+                raise ValueError()
+
+        except ValueError:
+            raise ValueError("Período do relatório inválido.") from None
+
+        if data_inicio > data_fim:
+            raise ValueError("A data inicial não pode superar a final.")
+
+        parametros = [inicio, fim]
+        filtro = ""
+
+        if pessoa_id is not None:
+            filtro = "AND p.pessoa_id = ?"
+            parametros.append(pessoa_id)
+
+        resultado = conexao.execute(
+            f"""
+            SELECT
+                COUNT(DISTINCT p.pessoa_id) AS pessoas,
+                COUNT(*) AS presencas,
+                COALESCE(SUM((
+                    SELECT COUNT(*)
+                    FROM presenca_servicos ps
+                    WHERE ps.presenca_id = p.id
+                )), 0) AS servicos,
+                COUNT(DISTINCT p.data) AS dias_registrados
+            FROM presencas p
+            WHERE p.data BETWEEN ? AND ?
+            {filtro}
+            """,
+            parametros,
+        ).fetchone()
+
+    pessoas = int(resultado["pessoas"])
+    presencas = int(resultado["presencas"])
+    servicos = int(resultado["servicos"])
+    dias = int(resultado["dias_registrados"])
 
     return {
-        "pessoas": int(df["pessoa_id"].nunique()),
-        "presencas": len(df),
-        "servicos": int(df["quantidade_servicos"].sum()),
+        "pessoas": pessoas,
+        "presencas": presencas,
+        "servicos": servicos,
         "dias_registrados": dias,
-        "media_por_dia": len(df) / dias,
+        "media_por_dia": (presencas / dias if dias else 0.0),
     }

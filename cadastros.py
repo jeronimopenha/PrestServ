@@ -59,7 +59,9 @@ def novo_cadastro():
         )
 
         enviar = st.form_submit_button(
-            "Cadastrar pessoa", type="primary", width="stretch",
+            "Cadastrar pessoa",
+            type="primary",
+            width="stretch",
         )
 
     if enviar:
@@ -94,8 +96,8 @@ def novo_cadastro():
 
 
 def editar_cadastro():
-    pessoas = listar_pessoas_admin()
-
+    pessoas = listar_pessoas_admin(ator_id=st.session_state["usuario"]["id"])
+    
     if not pessoas:
         st.info("Nenhuma pessoa cadastrada.")
         return
@@ -119,14 +121,20 @@ def editar_cadastro():
     if pessoa_id is None:
         return
 
-    pessoa = buscar_pessoa(pessoa_id)
+    pessoa = buscar_pessoa(
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
 
     if pessoa is None:
         st.error("Cadastro não encontrado.")
         return
 
     # Mostra a fotografia existente.
-    foto_atual = buscar_foto(pessoa_id)
+    foto_atual = buscar_foto(
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
 
     if foto_atual:
         st.image(foto_atual, width=180)
@@ -155,7 +163,9 @@ def editar_cadastro():
         )
 
         salvar = st.form_submit_button(
-            "Salvar alterações", type="primary", width="stretch",
+            "Salvar alterações",
+            type="primary",
+            width="stretch",
         )
 
     if salvar:
@@ -244,9 +254,7 @@ def editar_cadastro():
 
     # Consulta os relacionamentos existentes.
     with conectar() as conexao:
-        vinculos = consultar_vinculos(
-            conexao, "pessoas", pessoa_id
-        )
+        vinculos = consultar_vinculos(conexao, "pessoas", pessoa_id)
 
     pode_excluir = len(vinculos) == 0
 
@@ -257,19 +265,12 @@ def editar_cadastro():
         )
 
         for vinculo in vinculos:
-            st.caption(
-                f"{vinculo['tabela']}: "
-                f"{vinculo['quantidade']} registro(s)"
-            )
+            st.caption(f"{vinculo['tabela']}: " f"{vinculo['quantidade']} registro(s)")
     else:
-        st.success(
-            "Este cadastro não possui relacionamentos "
-            "e pode ser excluído."
-        )
+        st.success("Este cadastro não possui relacionamentos " "e pode ser excluído.")
 
     confirmar_exclusao = st.checkbox(
-        "Confirmo que desejo excluir definitivamente "
-        "este cadastro.",
+        "Confirmo que desejo excluir definitivamente " "este cadastro.",
         disabled=not pode_excluir,
         key=f"confirmar_exclusao_{pessoa_id}",
     )

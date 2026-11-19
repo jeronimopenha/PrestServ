@@ -15,7 +15,6 @@ from consultas_relatorios import (
 )
 from pdf_relatorios import gerar_pdf
 
-
 COLUNAS_RELATORIO = {
     "id": "ID",
     "pessoa_id": "ID da pessoa",
@@ -116,10 +115,30 @@ def tela_relatorios():
     inicio_sql = inicio.isoformat()
     fim_sql = fim.isoformat()
 
-    resumo = indicadores(inicio_sql, fim_sql, pessoa_id)
-    detalhado = presencas_detalhadas(inicio_sql, fim_sql, pessoa_id)
-    por_servico = servicos_por_tipo(inicio_sql, fim_sql, pessoa_id)
-    frequencia = frequencia_pessoas(inicio_sql, fim_sql, pessoa_id)
+    resumo = indicadores(
+        inicio_sql,
+        fim_sql,
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
+    detalhado = presencas_detalhadas(
+        inicio_sql,
+        fim_sql,
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
+    por_servico = servicos_por_tipo(
+        inicio_sql,
+        fim_sql,
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
+    frequencia = frequencia_pessoas(
+        inicio_sql,
+        fim_sql,
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
     diaria = evolucao_diaria(inicio_sql, fim_sql, pessoa_id)
     mensal = evolucao_mensal(inicio_sql, fim_sql, pessoa_id)
 

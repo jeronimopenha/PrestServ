@@ -36,6 +36,7 @@ PERMISSOES = {
     "restaurar_backup": {"superadmin"},
     # Doações e compras
     "gerenciar_entradas": {"superadmin", "admin", "secretaria"},
+    "consultar_fotos": {"superadmin", "admin", "secretaria", "porteiro"},
 }
 
 

@@ -18,26 +18,38 @@ from database import (
 def tela_presencas():
     st.subheader("Registro de presenças")
 
-    # Inicializa a data somente na primeira execução.
-    if "data_atendimento" not in st.session_state:
-        st.session_state["data_atendimento"] = date.fromisoformat(data_atual())
+    hoje = date.fromisoformat(data_atual())
+    perfil = st.session_state["usuario"]["perfil"]
 
-    # Data editável, preservada entre os atendimentos.
+    # O porteiro trabalha exclusivamente na data atual.
+    if perfil == "porteiro":
+        st.session_state["data_atendimento"] = hoje
+
+    elif "data_atendimento" not in st.session_state:
+        st.session_state["data_atendimento"] = hoje
+
     data_selecionada = st.date_input(
         "Data do atendimento",
         key="data_atendimento",
-        max_value=date.fromisoformat(data_atual()),
+        max_value=hoje,
+        disabled=(perfil == "porteiro"),
         format="DD/MM/YYYY",
     )
 
     data = data_selecionada.isoformat()
 
-    st.metric("Presenças na data", total_presencas(data))
+    st.metric(
+        "Presenças na data",
+        total_presencas(
+            data,
+            ator_id=st.session_state["usuario"]["id"],
+        ),
+    )
 
     st.divider()
 
     # Seleção da pessoa
-    pessoas = listar_pessoas()
+    pessoas = listar_pessoas(ator_id=st.session_state["usuario"]["id"])
 
     if not pessoas:
         st.warning("Nenhuma pessoa cadastrada.")
@@ -58,7 +70,10 @@ def tela_presencas():
         st.info("Selecione uma pessoa para registrar o atendimento.")
         return
 
-    pessoa = buscar_pessoa(pessoa_id)
+    pessoa = buscar_pessoa(
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
 
     if pessoa is None:
         st.error("Pessoa não encontrada.")
@@ -67,7 +82,10 @@ def tela_presencas():
     col_foto, col_dados = st.columns([1, 2])
 
     with col_foto:
-        foto = buscar_foto(pessoa_id)
+        foto = buscar_foto(
+            pessoa_id,
+            ator_id=st.session_state["usuario"]["id"],
+        )
 
         if foto:
             st.image(foto, width=150)
@@ -84,16 +102,23 @@ def tela_presencas():
             st.caption(f"Telefone: {pessoa['telefone']}")
 
     # Consulta o atendimento na data selecionada.
-    presenca = buscar_presenca(pessoa_id, data)
+    presenca = buscar_presenca(
+        pessoa_id,
+        data,
+        ator_id=st.session_state["usuario"]["id"],
+    )
 
     if presenca:
         st.success("Atendimento já registrado nesta data.")
-        servicos_marcados = buscar_servicos_presenca(presenca["id"])
+        servicos_marcados = buscar_servicos_presenca(
+            presenca["id"],
+            ator_id=st.session_state["usuario"]["id"],
+        )
     else:
         st.info("Nenhum atendimento registrado nesta data.")
         servicos_marcados = []
 
-    servicos = listar_servicos()
+    servicos = listar_servicos(ator_id=st.session_state["usuario"]["id"])
 
     # Identifica a combinação pessoa + data.
     atendimento_atual = (pessoa_id, data)

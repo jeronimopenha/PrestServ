@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
-from permissoes import exigir_permissao_usuario
+from permissoes import exigir_permissao_usuario, tem_permissao
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "dados" / "PrestServ.db"
@@ -70,21 +70,46 @@ def registrar_log(
     )
 
 
-def pesquisar_pessoas(termo):
-    """Pesquisa pessoas ativas pelo nome."""
-    termo = termo.strip()
+def pesquisar_pessoas(termo, ator_id):
+    """
+    Pesquisa pessoas ativas pelo nome.
 
-    if not termo:
-        return []
+    Retorna no máximo 30 resultados e respeita
+    as permissões de acesso a dados pessoais.
+    """
 
     with conectar() as conexao:
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
+        if not isinstance(termo, str):
+            raise ValueError("Termo de pesquisa inválido.")
+
+        termo = termo.strip()
+
+        if not termo:
+            return []
+
+        # Para o porteiro, os campos sensíveis
+        # sequer são selecionados do banco.
+        if tem_permissao(
+            perfil,
+            "consultar_dados_sensiveis",
+        ):
+            colunas = "id, nome, documento, telefone"
+        else:
+            colunas = "id, nome, " "NULL AS documento, " "NULL AS telefone"
+
         registros = conexao.execute(
-            """
-            SELECT id, nome, documento, telefone
+            f"""
+            SELECT {colunas}
             FROM pessoas
             WHERE ativo = 1
               AND nome LIKE ? COLLATE NOCASE
-            ORDER BY nome
+            ORDER BY nome COLLATE NOCASE, id
             LIMIT 30
             """,
             (f"%{termo}%",),
@@ -93,24 +118,77 @@ def pesquisar_pessoas(termo):
     return [dict(registro) for registro in registros]
 
 
-def buscar_pessoa(pessoa_id):
-    """Retorna os dados de uma pessoa."""
+def buscar_pessoa(pessoa_id, ator_id):
+    """
+    Consulta os dados de uma pessoa atendida.
+
+    Retorna somente os campos autorizados para
+    o papel do operador.
+    """
+
     with conectar() as conexao:
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
+        if type(pessoa_id) is not int or pessoa_id <= 0:
+            raise ValueError("Identificador da pessoa inválido.")
+
         registro = conexao.execute(
             """
-            SELECT *
+            SELECT
+                id,
+                nome,
+                documento,
+                telefone,
+                contato_nome,
+                contato_telefone,
+                ativo,
+                criado_em
             FROM pessoas
             WHERE id = ?
             """,
             (pessoa_id,),
         ).fetchone()
 
-    return dict(registro) if registro else None
+    if registro is None:
+        return None
+
+    dados = dict(registro)
+
+    # Oculta informações pessoais de operadores
+    # sem permissão para consultar dados sensíveis.
+    if not tem_permissao(
+        perfil,
+        "consultar_dados_sensiveis",
+    ):
+        for campo in (
+            "documento",
+            "telefone",
+            "contato_nome",
+            "contato_telefone",
+        ):
+            dados[campo] = None
+
+    return dados
 
 
-def listar_servicos():
-    """Retorna os serviços ativos."""
+def listar_servicos(ator_id):
+    """
+    Retorna os serviços ativos para operadores autorizados.
+
+    Exige permissão para consultar pessoas.
+    """
+
     with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
         registros = conexao.execute("""
             SELECT id, nome
             FROM servicos
@@ -121,32 +199,56 @@ def listar_servicos():
     return [dict(registro) for registro in registros]
 
 
-def buscar_presenca(pessoa_id, data=None):
-    """Consulta a presença de uma pessoa em determinada data."""
-    data = data or data_atual()
+def buscar_servicos_presenca(presenca_id, ator_id):
+    """
+    Retorna os IDs dos serviços associados a uma presença.
+
+    Porteiros podem consultar somente atendimentos
+    da data atual. Os demais perfis autorizados
+    podem consultar o histórico.
+    """
 
     with conectar() as conexao:
-        registro = conexao.execute(
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
+        if type(presenca_id) is not int or presenca_id <= 0:
+            raise ValueError("Identificador da presença inválido.")
+
+        # Recupera a data real da presença.
+        # Não confia em uma data enviada pela interface.
+        presenca = conexao.execute(
             """
-            SELECT id, pessoa_id, data
+            SELECT data
             FROM presencas
-            WHERE pessoa_id = ?
-              AND data = ?
+            WHERE id = ?
             """,
-            (pessoa_id, data),
+            (presenca_id,),
         ).fetchone()
 
-    return dict(registro) if registro else None
+        if presenca is None:
+            return []
 
+        data_presenca = date.fromisoformat(presenca["data"])
+        hoje = date.fromisoformat(data_atual())
 
-def buscar_servicos_presenca(presenca_id):
-    """Retorna os IDs dos serviços associados à presença."""
-    with conectar() as conexao:
+        if data_presenca > hoje:
+            raise ValueError("Não é permitido consultar " "atendimentos futuros.")
+
+        if perfil == "porteiro" and data_presenca != hoje:
+            raise PermissionError(
+                "O porteiro só pode consultar " "serviços da data atual."
+            )
+
         registros = conexao.execute(
             """
             SELECT servico_id
             FROM presenca_servicos
             WHERE presenca_id = ?
+            ORDER BY servico_id
             """,
             (presenca_id,),
         ).fetchall()
@@ -348,11 +450,46 @@ def salvar_atendimento(
     return presenca_id
 
 
-def total_presencas(data=None):
-    """Conta as presenças registradas na data informada."""
-    data = data or data_atual()
+def total_presencas(data=None, ator_id=None):
+    """
+    Conta as presenças registradas em determinada data.
+
+    Porteiros podem consultar somente a data atual.
+    Administradores e secretaria podem consultar
+    datas anteriores.
+    """
 
     with conectar() as conexao:
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
+        data = data_atual() if data is None else data
+
+        try:
+            if not isinstance(data, str):
+                raise ValueError()
+
+            data_validada = date.fromisoformat(data)
+
+            if data != data_validada.isoformat():
+                raise ValueError()
+
+        except ValueError:
+            raise ValueError("Data de atendimento inválida.") from None
+
+        hoje = date.fromisoformat(data_atual())
+
+        if data_validada > hoje:
+            raise ValueError("Não é permitido consultar " "atendimentos futuros.")
+
+        if perfil == "porteiro" and data_validada != hoje:
+            raise PermissionError(
+                "O porteiro só pode consultar " "os totais da data atual."
+            )
+
         resultado = conexao.execute(
             """
             SELECT COUNT(*) AS total
@@ -365,22 +502,49 @@ def total_presencas(data=None):
     return resultado["total"]
 
 
-def listar_pessoas():
-    """Lista todas as pessoas ativas em ordem alfabética."""
+def listar_pessoas(ator_id):
+    """
+    Lista pessoas ativas para seleção de atendimentos.
+
+    Exige autorização e retorna somente ID e nome,
+    sem expor documentos ou contatos pessoais.
+    """
+
     with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
         registros = conexao.execute("""
-            SELECT id, nome, documento
+            SELECT id, nome
             FROM pessoas
             WHERE ativo = 1
             ORDER BY nome COLLATE NOCASE
-            """).fetchall()
+        """).fetchall()
 
     return [dict(registro) for registro in registros]
 
 
-def buscar_foto(pessoa_id):
-    """Retorna os bytes JPEG da fotografia ou None."""
+def buscar_foto(pessoa_id, ator_id):
+    """
+    Consulta a fotografia de uma pessoa atendida.
+
+    Retorna os bytes JPEG ou None quando não existe foto.
+    Exige autorização para consultar fotografias.
+    """
+
     with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_fotos",
+        )
+
+        if type(pessoa_id) is not int or pessoa_id <= 0:
+            raise ValueError("Identificador da pessoa inválido.")
+
         registro = conexao.execute(
             """
             SELECT foto
@@ -393,36 +557,81 @@ def buscar_foto(pessoa_id):
     return registro["foto"] if registro else None
 
 
-def salvar_foto(pessoa_id, foto_jpeg, ator_id=None, ator_login=None):
-    """Salva ou substitui a fotografia de uma pessoa."""
+def salvar_foto(
+    pessoa_id,
+    foto_jpeg,
+    ator_id=None,
+    ator_login=None,
+):
+    """
+    Salva ou substitui a fotografia de uma pessoa.
+
+    Somente operadores autorizados a editar cadastros
+    podem executar esta operação.
+    """
+
+    if type(pessoa_id) is not int or pessoa_id <= 0:
+        raise ValueError("Identificador da pessoa inválido.")
+
     if not foto_jpeg:
         raise ValueError("Fotografia vazia.")
 
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Verifica a autorização diretamente no banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "editar_pessoas",
+        )
+
+        # Obtém o login verdadeiro do operador.
+        ator = conexao.execute(
+            """
+            SELECT login
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (ator_id,),
+        ).fetchone()
+
         pessoa = conexao.execute(
-            "SELECT id FROM pessoas WHERE id = ?", (pessoa_id,)
+            """
+            SELECT id
+            FROM pessoas
+            WHERE id = ?
+            """,
+            (pessoa_id,),
         ).fetchone()
 
         if pessoa is None:
             raise ValueError("Pessoa não encontrada.")
 
+        # Verifica se já existe uma fotografia.
         foto_existente = (
             conexao.execute(
                 """
-                SELECT 1
-                FROM fotos_pessoas
-                WHERE pessoa_id = ?
-                """,
+            SELECT 1
+            FROM fotos_pessoas
+            WHERE pessoa_id = ?
+            """,
                 (pessoa_id,),
             ).fetchone()
             is not None
         )
 
+        # Insere ou substitui a fotografia.
         conexao.execute(
             """
-            INSERT INTO fotos_pessoas
-                (pessoa_id, foto, formato, atualizada_em)
+            INSERT INTO fotos_pessoas (
+                pessoa_id,
+                foto,
+                formato,
+                atualizada_em
+            )
             VALUES (?, ?, 'image/jpeg', CURRENT_TIMESTAMP)
+
             ON CONFLICT(pessoa_id)
             DO UPDATE SET
                 foto = excluded.foto,
@@ -431,20 +640,54 @@ def salvar_foto(pessoa_id, foto_jpeg, ator_id=None, ator_login=None):
             """,
             (pessoa_id, foto_jpeg),
         )
+
+        # Registra a operação sem incluir a imagem no log.
         registrar_log(
             conexao,
             acao=("substituir_foto" if foto_existente else "adicionar_foto"),
             usuario_id=ator_id,
-            usuario_login=ator_login,
+            usuario_login=ator["login"],
             entidade="fotos_pessoas",
             entidade_id=pessoa_id,
         )
 
 
-def remover_foto(pessoa_id, ator_id=None, ator_login=None):
-    """Remove a fotografia e registra a operação."""
+def remover_foto(
+    pessoa_id,
+    ator_id=None,
+    ator_login=None,
+):
+    """
+    Remove a fotografia de uma pessoa atendida.
+
+    Exige permissão para editar cadastros.
+    Registra a remoção na auditoria.
+    """
+
+    if type(pessoa_id) is not int or pessoa_id <= 0:
+        raise ValueError("Identificador da pessoa inválido.")
 
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Autoriza a operação diretamente no banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "editar_pessoas",
+        )
+
+        # Identifica o verdadeiro operador.
+        ator = conexao.execute(
+            """
+            SELECT login
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (ator_id,),
+        ).fetchone()
+
+        # Remove a fotografia, se existir.
         cursor = conexao.execute(
             """
             DELETE FROM fotos_pessoas
@@ -453,30 +696,56 @@ def remover_foto(pessoa_id, ator_id=None, ator_login=None):
             (pessoa_id,),
         )
 
-        # Só registra se uma fotografia foi realmente removida.
-        if cursor.rowcount > 0:
-            registrar_log(
-                conexao,
-                acao="remover_foto",
-                usuario_id=ator_id,
-                usuario_login=ator_login,
-                entidade="fotos_pessoas",
-                entidade_id=pessoa_id,
-            )
+        # Nenhuma fotografia removida: não registra log.
+        if cursor.rowcount == 0:
+            return
+
+        registrar_log(
+            conexao,
+            acao="remover_foto",
+            usuario_id=ator_id,
+            usuario_login=ator["login"],
+            entidade="fotos_pessoas",
+            entidade_id=pessoa_id,
+        )
 
 
-def listar_pessoas_admin():
-    """Lista pessoas ativas e inativas."""
+def listar_pessoas_admin(ator_id):
+    """
+    Lista pessoas ativas e inativas com dados cadastrais.
+
+    Acesso exclusivo a operadores autorizados
+    a consultar pessoas e dados sensíveis.
+    """
+
     with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_dados_sensiveis",
+        )
+
         registros = conexao.execute("""
-            SELECT id, nome, documento, telefone,
-                   contato_nome, contato_telefone,
-                   ativo, criado_em
+            SELECT
+                id,
+                nome,
+                documento,
+                telefone,
+                contato_nome,
+                contato_telefone,
+                ativo,
+                criado_em
             FROM pessoas
             ORDER BY nome COLLATE NOCASE, id
-            """).fetchall()
+        """).fetchall()
 
-    return [dict(r) for r in registros]
+    return [dict(registro) for registro in registros]
 
 
 def cadastrar_pessoa(
@@ -488,12 +757,33 @@ def cadastrar_pessoa(
     ator_id=None,
     ator_login=None,
 ):
+    """Cadastra uma pessoa atendida, verificando a autorização."""
+
     nome = nome.strip()
 
     if not nome:
         raise ValueError("O nome é obrigatório.")
 
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Verifica a autorização diretamente no banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "cadastrar_pessoas",
+        )
+
+        # Obtém o login verdadeiro do responsável.
+        ator = conexao.execute(
+            """
+            SELECT login
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (ator_id,),
+        ).fetchone()
+
         cursor = conexao.execute(
             """
             INSERT INTO pessoas (
@@ -517,7 +807,7 @@ def cadastrar_pessoa(
             conexao,
             acao="cadastrar_pessoa",
             usuario_id=ator_id,
-            usuario_login=ator_login,
+            usuario_login=ator["login"],
             entidade="pessoas",
             entidade_id=pessoa_id,
         )
@@ -535,6 +825,8 @@ def atualizar_pessoa(
     ator_id=None,
     ator_login=None,
 ):
+    """Atualiza uma pessoa, verificando a autorização."""
+
     nome = nome.strip()
 
     if not nome:
@@ -551,6 +843,21 @@ def atualizar_pessoa(
     }
 
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Verifica a autorização diretamente no SQLite.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "editar_pessoas",
+        )
+
+        # Obtém o login verdadeiro do operador.
+        ator = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
         anterior = conexao.execute(
             """
             SELECT nome, documento, telefone,
@@ -570,12 +877,13 @@ def atualizar_pessoa(
             valor_antigo = anterior[campo]
 
             if valor_antigo != valor_novo:
+                # Não registra documentos ou telefones nos logs.
                 alteracoes[campo] = {
                     "antes_preenchido": bool(valor_antigo),
                     "depois_preenchido": bool(valor_novo),
                 }
 
-        # Nada mudou: não precisa atualizar nem registrar log.
+        # Se nada mudou, não grava nem registra log.
         if not alteracoes:
             return
 
@@ -603,19 +911,51 @@ def atualizar_pessoa(
             conexao,
             acao="atualizar_pessoa",
             usuario_id=ator_id,
-            usuario_login=ator_login,
+            usuario_login=ator["login"],
             entidade="pessoas",
             entidade_id=pessoa_id,
             detalhes={"alteracoes": alteracoes},
         )
 
 
-def alterar_status_pessoa(pessoa_id, ativo, ator_id, ator_login):
-    """Ativa ou desativa uma pessoa, registrando a operação."""
+def alterar_status_pessoa(
+    pessoa_id,
+    ativo,
+    ator_id,
+    ator_login=None,
+):
+    """
+    Ativa ou desativa uma pessoa atendida.
+
+    Exige permissão para editar cadastros.
+    Preserva o histórico e registra as alterações.
+    """
+
+    if type(pessoa_id) is not int or pessoa_id <= 0:
+        raise ValueError("Identificador da pessoa inválido.")
 
     novo_status = int(bool(ativo))
 
     with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        # Autoriza a operação consultando o banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "editar_pessoas",
+        )
+
+        # Identifica o verdadeiro operador.
+        ator = conexao.execute(
+            """
+            SELECT login
+            FROM usuarios
+            WHERE id = ?
+            """,
+            (ator_id,),
+        ).fetchone()
+
         pessoa = conexao.execute(
             """
             SELECT ativo
@@ -630,7 +970,7 @@ def alterar_status_pessoa(pessoa_id, ativo, ator_id, ator_login):
 
         status_anterior = pessoa["ativo"]
 
-        # Não registra nada quando o status não muda.
+        # Não registra operações sem alteração.
         if status_anterior == novo_status:
             return
 
@@ -647,7 +987,7 @@ def alterar_status_pessoa(pessoa_id, ativo, ator_id, ator_login):
             conexao,
             acao=("ativar_pessoa" if novo_status else "desativar_pessoa"),
             usuario_id=ator_id,
-            usuario_login=ator_login,
+            usuario_login=ator["login"],
             entidade="pessoas",
             entidade_id=pessoa_id,
             detalhes={
@@ -669,20 +1009,22 @@ def excluir_pessoa(pessoa_id, ator_id):
         # Bloqueia outras escritas até o fim da operação.
         conexao.execute("BEGIN IMMEDIATE")
 
-        # Verifica se o operador é um administrador ativo.
+        # Verifica a autorização diretamente no banco.
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "excluir_pessoas",
+        )
+
+        # Obtém os dados reais do responsável pela exclusão.
         ator = conexao.execute(
             """
             SELECT id, login
             FROM usuarios
             WHERE id = ?
-              AND perfil = 'admin'
-              AND ativo = 1
             """,
             (ator_id,),
         ).fetchone()
-
-        if ator is None:
-            raise ValueError("Administrador não autorizado.")
 
         pessoa = conexao.execute(
             "SELECT id FROM pessoas WHERE id = ?",
@@ -898,3 +1240,59 @@ def excluir_logs(ids, ator_id):
         )
 
     return quantidade
+
+
+def buscar_presenca(pessoa_id, data=None, ator_id=None):
+    """
+    Consulta a presença de uma pessoa em determinada data.
+
+    O porteiro pode consultar apenas a data atual.
+    Administradores e secretaria podem consultar
+    datas anteriores.
+    """
+
+    with conectar() as conexao:
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
+        if type(pessoa_id) is not int or pessoa_id <= 0:
+            raise ValueError("Identificador da pessoa inválido.")
+
+        data = data_atual() if data is None else data
+
+        try:
+            if not isinstance(data, str):
+                raise ValueError()
+
+            data_validada = date.fromisoformat(data)
+
+            if data != data_validada.isoformat():
+                raise ValueError()
+
+        except ValueError:
+            raise ValueError("Data de atendimento inválida.") from None
+
+        hoje = date.fromisoformat(data_atual())
+
+        if data_validada > hoje:
+            raise ValueError("Não é permitido consultar atendimentos futuros.")
+
+        if perfil == "porteiro" and data_validada != hoje:
+            raise PermissionError(
+                "O porteiro só pode consultar " "atendimentos da data atual."
+            )
+
+        registro = conexao.execute(
+            """
+            SELECT id, pessoa_id, data
+            FROM presencas
+            WHERE pessoa_id = ?
+              AND data = ?
+            """,
+            (pessoa_id, data),
+        ).fetchone()
+
+    return dict(registro) if registro else None
