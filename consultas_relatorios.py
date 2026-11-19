@@ -432,25 +432,55 @@ def pessoas_ausentes(data_referencia, dias=30, ator_id=None):
     return resultado
 
 
-def qualidade_cadastros():
-    return consultar("""
-        SELECT
-            pe.id,
-            pe.nome,
-            CASE WHEN pe.documento IS NULL
+def qualidade_cadastros(ator_id=None):
+    """
+    Consulta a qualidade dos cadastros de pessoas ativas.
+
+    Informa a existência de documento, telefone
+    e fotografia, sem retornar seus conteúdos.
+
+    Acesso exclusivo a superadmin e admin.
+    """
+
+    with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "relatorios_pessoais",
+        )
+
+        resultado = pd.read_sql_query(
+            """
+            SELECT
+                pe.id,
+                pe.nome,
+                CASE
+                    WHEN pe.documento IS NULL
                       OR TRIM(pe.documento) = ''
-                 THEN 'Não' ELSE 'Sim' END AS documento,
-            CASE WHEN pe.telefone IS NULL
+                    THEN 'Não'
+                    ELSE 'Sim'
+                END AS documento,
+                CASE
+                    WHEN pe.telefone IS NULL
                       OR TRIM(pe.telefone) = ''
-                 THEN 'Não' ELSE 'Sim' END AS telefone,
-            CASE WHEN fp.pessoa_id IS NULL
-                 THEN 'Não' ELSE 'Sim' END AS fotografia
-        FROM pessoas pe
-        LEFT JOIN fotos_pessoas fp
-            ON fp.pessoa_id = pe.id
-        WHERE pe.ativo = 1
-        ORDER BY pe.nome
-        """)
+                    THEN 'Não'
+                    ELSE 'Sim'
+                END AS telefone,
+                CASE
+                    WHEN fp.pessoa_id IS NULL
+                    THEN 'Não'
+                    ELSE 'Sim'
+                END AS fotografia
+            FROM pessoas pe
+            LEFT JOIN fotos_pessoas fp
+                ON fp.pessoa_id = pe.id
+            WHERE pe.ativo = 1
+            ORDER BY pe.nome
+            """,
+            conexao,
+        )
+
+    return resultado
 
 
 def indicadores(inicio, fim, pessoa_id=None, ator_id=None):

@@ -208,7 +208,11 @@ def tela_relatorios():
             "Dias sem comparecimento", min_value=1, max_value=3650, value=30
         )
 
-        ausentes = pessoas_ausentes(fim_sql, dias)
+        ausentes = pessoas_ausentes(
+            fim_sql,
+            dias,
+            ator_id=st.session_state["usuario"]["id"],
+        )
 
         tabela_relatorio(ausentes)
 
@@ -217,7 +221,7 @@ def tela_relatorios():
     with abas[4]:
         st.write("### Qualidade dos cadastros")
 
-        qualidade = qualidade_cadastros()
+        qualidade = qualidade_cadastros(ator_id=st.session_state["usuario"]["id"])
 
         tabela_relatorio(qualidade)
 
