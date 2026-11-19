@@ -101,7 +101,7 @@ def tela_relatorios():
         st.error("A data inicial não pode superar a final.")
         return
 
-    pessoas = listar_pessoas_admin()
+    pessoas = listar_pessoas_admin(ator_id=st.session_state["usuario"]["id"])
     opcoes = {p["id"]: p["nome"] for p in pessoas}
 
     pessoa_id = st.selectbox(
@@ -139,8 +139,18 @@ def tela_relatorios():
         pessoa_id,
         ator_id=st.session_state["usuario"]["id"],
     )
-    diaria = evolucao_diaria(inicio_sql, fim_sql, pessoa_id)
-    mensal = evolucao_mensal(inicio_sql, fim_sql, pessoa_id)
+    diaria = evolucao_diaria(
+        inicio_sql,
+        fim_sql,
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
+    mensal = evolucao_mensal(
+        inicio_sql,
+        fim_sql,
+        pessoa_id,
+        ator_id=st.session_state["usuario"]["id"],
+    )
 
     st.divider()
 
