@@ -16,20 +16,36 @@ from reportlab.platypus import (
     KeepTogether,
 )
 
+from database import conectar
+from permissoes import exigir_permissao_usuario
 from common import BASIC_TITTLE, ANO, VERSAO
 
 
-def gerar_pdf(titulo, inicio, fim, indicadores, tabelas):
+def gerar_pdf(titulo, inicio, fim, indicadores, tabelas, ator_id):
     """
+    Gera um relatório PDF para usuário autorizado.
+
     tabelas: lista de tuplas (titulo_secao, DataFrame).
     Retorna bytes de um PDF.
     """
+
+    # Verifica a autorização antes de preparar o PDF.
+    with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "exportar_relatorios",
+        )
+
+    # A partir daqui, permanece o código original.
     COR_PRINCIPAL = colors.HexColor("#444444")
     COR_SECUNDARIA = colors.HexColor("#666666")
     COR_LINHA = colors.HexColor("#DDDDDD")
     COR_ALTERNADA = colors.HexColor("#F5F5F5")
 
     buffer = BytesIO()
+
+    # Mantenha todo o restante da função original.
 
     documento = SimpleDocTemplate(
         buffer,

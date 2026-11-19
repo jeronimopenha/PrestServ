@@ -406,16 +406,22 @@ def main():
             painel_admin()
 
     elif perfil == "porteiro":
-            tela_presencas()
+        tela_presencas()
 
-    elif perfil in ("secretaria", "consulta"):
-            st.info(
-                "Este perfil está cadastrado, mas suas telas "
-                "ainda estão sendo adaptadas para a V2.0."
-            )
+    elif perfil == "consulta":
+        pagina = st.sidebar.radio(
+            "Navegação",
+            ["Relatórios"],
+        )
+
+        if pagina == "Relatórios":
+            tela_relatorios()
+
+    elif perfil == "secretaria":
+        st.info("As funcionalidades da Secretaria " "estão em preparação.")
 
     else:
-            st.error("Perfil de usuário inválido.")
+        st.error("Perfil de usuário inválido.")
 
     with st.sidebar:
         with st.container(key="creditos_prestserv"):

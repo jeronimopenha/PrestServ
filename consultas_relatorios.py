@@ -4,11 +4,6 @@ from datetime import date
 from permissoes import exigir_permissao_usuario
 
 
-def consultar(sql, parametros=()):
-    with conectar() as conexao:
-        return pd.read_sql_query(sql, conexao, params=parametros)
-
-
 def presencas_detalhadas(inicio, fim, pessoa_id=None, ator_id=None):
     """
     Consulta atendimentos individuais de um período.
