@@ -259,6 +259,11 @@ def editar_cadastro():
                 st.toast("Fotografia removida.")
                 st.rerun()
 
+    # Apenas superadmin e admin podem visualizar
+    # as opções de exclusão definitiva.
+    if not tem_permissao(perfil, "excluir_pessoas"):
+        return
+
     st.divider()
     st.write("### Excluir cadastro")
 

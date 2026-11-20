@@ -418,7 +418,13 @@ def main():
             tela_relatorios()
 
     elif perfil == "secretaria":
-        st.info("As funcionalidades da Secretaria " "estão em preparação.")
+        pagina = st.sidebar.radio(
+            "Navegação",
+            ["Cadastros"],
+        )
+
+        if pagina == "Cadastros":
+            tela_cadastros()
 
     else:
         st.error("Perfil de usuário inválido.")
