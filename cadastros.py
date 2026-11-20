@@ -15,6 +15,7 @@ from database import (
 
 from estrutura_v110 import consultar_vinculos
 from fotos import converter_para_jpeg
+from permissoes import exigir_permissao_usuario, tem_permissao
 
 
 def campo_texto(valor):
@@ -96,8 +97,17 @@ def novo_cadastro():
 
 
 def editar_cadastro():
-    pessoas = listar_pessoas_admin(ator_id=st.session_state["usuario"]["id"])
-    
+    ator_id = st.session_state["usuario"]["id"]
+
+    with conectar() as conexao:
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_dados_sensiveis",
+        )
+
+    pessoas = listar_pessoas_admin(ator_id=ator_id)
+
     if not pessoas:
         st.info("Nenhuma pessoa cadastrada.")
         return
