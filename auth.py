@@ -115,12 +115,11 @@ def criar_usuario(nome, login, senha, perfil, ator_id=None, ator_login=None):
         total_usuarios = conexao.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
 
         if total_usuarios == 0:
-            # Compatibilidade com criar_admin.py.
-            # A primeira conta é criada pelo procedimento de
-            # instalação, antes da configuração do superadmin.
-            if ator_id is not None or perfil != "admin":
+            # Instalação inicial da V2:
+            # a primeira conta deve ser superadministrador.
+            if ator_id is not None or perfil != "superadmin":
                 raise PermissionError(
-                    "A primeira conta deve ser um administrador inicial."
+                    "A primeira conta deve ser um superadministrador inicial."
                 )
 
             login_responsavel = "sistema"

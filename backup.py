@@ -127,6 +127,16 @@ def validar_banco(conexao):
         if "logs" not in tabelas:
             raise ValueError("Backup V2 sem tabela de auditoria.")
 
+        colunas_servicos = {
+            linha[1]
+            for linha in conexao.execute("PRAGMA table_info(presenca_servicos)")
+        }
+
+        if "quantidade" not in colunas_servicos:
+            raise ValueError(
+                "Backup do schema 2 sem a coluna quantidade " "em presenca_servicos."
+            )
+
         total = conexao.execute("""
             SELECT COUNT(*)
             FROM usuarios

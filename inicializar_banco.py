@@ -2,9 +2,33 @@ import sqlite3
 
 from database import DB_PATH
 from estrutura_v110 import criar_estrutura_logs
+from estrutura_v200 import migrar_usuarios_v200
 
 
 def inicializar_banco():
+    instalacao_nova = not DB_PATH.exists()
+
+    # Um banco existente precisa estar no esquema 2.
+    # Bancos antigos exigem migração controlada.
+    if DB_PATH.is_file():
+        conexao = sqlite3.connect(
+            DB_PATH.resolve().as_uri() + "?mode=ro",
+            uri=True,
+        )
+
+        try:
+            versao = conexao.execute("PRAGMA user_version").fetchone()[0]
+        finally:
+            conexao.close()
+
+        if versao != 2:
+            raise RuntimeError(
+                f"Banco existente com esquema {versao}. "
+                "O PrestServ V2.0.0 exige o esquema 2. "
+                "Realize um backup e a migração antes "
+                "de iniciar a aplicação."
+            )
+
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     with sqlite3.connect(DB_PATH) as conexao:
@@ -85,6 +109,8 @@ def inicializar_banco():
             VALUES ('Jantar'), ('Banho'), ('Roupas');
         """)
         criar_estrutura_logs(conexao)
+        if instalacao_nova:
+            migrar_usuarios_v200(conexao)
 
 
 if __name__ == "__main__":

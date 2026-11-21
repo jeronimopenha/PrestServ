@@ -14,7 +14,7 @@ def main():
         print("A criação inicial está desabilitada.")
         return
 
-    print("=== Primeiro administrador do PrestServ ===")
+    print("=== Primeiro superadministrador do PrestServ ===")
 
     nome = input("Nome: ").strip()
     login = input("Login: ").strip()
@@ -26,8 +26,8 @@ def main():
         return
 
     try:
-        criar_usuario(nome, login, senha, "admin")
-        print("Administrador criado com sucesso!")
+        criar_usuario(nome, login, senha, "superadmin")
+        print("Superadministrador criado com sucesso!")
     except (ValueError, sqlite3.IntegrityError) as erro:
         print(f"Erro: {erro}")
 

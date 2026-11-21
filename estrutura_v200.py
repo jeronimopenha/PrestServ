@@ -22,6 +22,23 @@ def migrar_usuarios_v200(conexao):
     versao = conexao.execute("PRAGMA user_version").fetchone()[0]
 
     if versao == 2:
+        colunas = {
+            linha[1]: linha
+            for linha in conexao.execute("PRAGMA table_info(presenca_servicos)")
+        }
+
+        quantidade = colunas.get("quantidade")
+
+        if (
+            quantidade is None
+            or quantidade[2].upper() != "INTEGER"
+            or quantidade[3] != 1
+            or str(quantidade[4]).strip("()'\" ") != "1"
+        ):
+            raise RuntimeError(
+                "Banco marcado como V2, mas sem a " "estrutura esperada de quantidades."
+            )
+
         return False
 
     if versao != 1:

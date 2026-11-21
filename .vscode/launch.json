@@ -1,4 +1,3 @@
-
 {
     "version": "0.2.0",
     "configurations": [
@@ -17,7 +16,10 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": true,
-            "subProcess": true
+            "subProcess": true,
+            "env": {
+                "PRESTSERV_DB_PATH": "${workspaceFolder}/dados/PrestServ_dev.db"
+            }
         }
     ]
 }

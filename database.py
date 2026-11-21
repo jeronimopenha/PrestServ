@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import json
 from pathlib import Path
@@ -6,7 +7,17 @@ from zoneinfo import ZoneInfo
 from permissoes import exigir_permissao_usuario, tem_permissao
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "dados" / "PrestServ.db"
+
+DB_PATH = (
+    Path(
+        os.environ.get(
+            "PRESTSERV_DB_PATH",
+            str(BASE_DIR / "dados" / "PrestServ.db"),
+        )
+    )
+    .expanduser()
+    .resolve()
+)
 
 FUSO_HORARIO = ZoneInfo("America/Sao_Paulo")
 
@@ -230,7 +241,7 @@ def buscar_servicos_presenca(presenca_id, ator_id):
         ).fetchone()
 
         if presenca is None:
-            return []
+            return {}
 
         data_presenca = date.fromisoformat(presenca["data"])
         hoje = date.fromisoformat(data_atual())
@@ -245,7 +256,7 @@ def buscar_servicos_presenca(presenca_id, ator_id):
 
         registros = conexao.execute(
             """
-            SELECT servico_id
+            SELECT servico_id, quantidade
             FROM presenca_servicos
             WHERE presenca_id = ?
             ORDER BY servico_id
@@ -253,7 +264,7 @@ def buscar_servicos_presenca(presenca_id, ator_id):
             (presenca_id,),
         ).fetchall()
 
-    return [registro["servico_id"] for registro in registros]
+    return {registro["servico_id"]: registro["quantidade"] for registro in registros}
 
 
 def salvar_atendimento(
@@ -267,7 +278,8 @@ def salvar_atendimento(
     """
 
     data = data_atual() if data is None else data
-    servicos_ids = set(servicos_ids)
+    quantidades_novas = normalizar_quantidades_servicos(servicos_ids)
+    servicos_ids = set(quantidades_novas)
 
     # Valida a data informada.
     try:
@@ -338,19 +350,23 @@ def salvar_atendimento(
         presenca_existia = presenca is not None
 
         servicos_anteriores = []
+        quantidades_anteriores = {}
 
         if presenca_existia:
-            servicos_anteriores = sorted(
-                registro["servico_id"]
-                for registro in conexao.execute(
-                    """
-                    SELECT servico_id
-                    FROM presenca_servicos
-                    WHERE presenca_id = ?
-                    """,
-                    (presenca["id"],),
-                ).fetchall()
-            )
+            registros = conexao.execute(
+                """
+                SELECT servico_id, quantidade
+                FROM presenca_servicos
+                WHERE presenca_id = ?
+                """,
+                (presenca["id"],),
+            ).fetchall()
+
+            quantidades_anteriores = {
+                registro["servico_id"]: registro["quantidade"] for registro in registros
+            }
+
+            servicos_anteriores = sorted(quantidades_anteriores)
 
         # Nenhum serviço selecionado: remove a presença.
         if not servicos_ids:
@@ -372,6 +388,8 @@ def salvar_atendimento(
                         "data": data,
                         "servicos_anteriores": servicos_anteriores,
                         "servicos_novos": [],
+                        "quantidades_anteriores": quantidades_anteriores,
+                        "quantidades_novas": {},
                     },
                 )
 
@@ -390,7 +408,7 @@ def salvar_atendimento(
 
         servicos_novos = sorted(servicos_ids)
 
-        if presenca_existia and servicos_anteriores == servicos_novos:
+        if presenca_existia and quantidades_anteriores == quantidades_novas:
             return presenca["id"]
 
         # Cria a presença caso ainda não exista.
@@ -426,10 +444,13 @@ def salvar_atendimento(
         conexao.executemany(
             """
             INSERT INTO presenca_servicos
-                (presenca_id, servico_id)
-            VALUES (?, ?)
+                (presenca_id, servico_id, quantidade)
+            VALUES (?, ?, ?)
             """,
-            [(presenca_id, servico_id) for servico_id in servicos_ids],
+            [
+                (presenca_id, servico_id, quantidades_novas[servico_id])
+                for servico_id in servicos_novos
+            ],
         )
 
         registrar_log(
@@ -444,6 +465,8 @@ def salvar_atendimento(
                 "data": data,
                 "servicos_anteriores": servicos_anteriores,
                 "servicos_novos": servicos_novos,
+                "quantidades_anteriores": quantidades_anteriores,
+                "quantidades_novas": quantidades_novas,
             },
         )
 
@@ -1312,3 +1335,40 @@ def _tem_coluna_quantidade_servico(conexao):
     colunas = conexao.execute("PRAGMA table_info(presenca_servicos)").fetchall()
 
     return any(coluna[1] == "quantidade" for coluna in colunas)
+
+
+def normalizar_quantidades_servicos(servicos):
+    """
+    Converte serviços para o formato {servico_id: quantidade}.
+
+    Aceita:
+    - Lista, tupla ou conjunto de IDs: quantidade 1.
+    - Dicionário de IDs e quantidades.
+
+    Uma seleção vazia representa a remoção do atendimento.
+    """
+
+    if isinstance(servicos, dict):
+        itens = servicos.items()
+
+    elif isinstance(servicos, (list, tuple, set)):
+        itens = ((servico_id, 1) for servico_id in servicos)
+
+    else:
+        raise ValueError("Formato de serviços inválido.")
+
+    resultado = {}
+
+    for servico_id, quantidade in itens:
+        if type(servico_id) is not int or servico_id <= 0:
+            raise ValueError("Identificador de serviço inválido.")
+
+        if type(quantidade) is not int or quantidade < 1:
+            raise ValueError(
+                "A quantidade de cada serviço deve ser "
+                "um número inteiro maior ou igual a 1."
+            )
+
+        resultado[servico_id] = quantidade
+
+    return resultado
