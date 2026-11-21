@@ -99,9 +99,13 @@ def gerar_pdf(titulo, inicio, fim, indicadores, tabelas, ator_id):
         ["Indicador", "Quantidade"],
         ["Pessoas distintas", str(indicadores["pessoas"])],
         ["Presenças", str(indicadores["presencas"])],
-        ["Serviços prestados", str(indicadores["servicos"])],
+        ["Serviços registrados", str(indicadores["servicos"])],
+        ["Unidades distribuídas", str(indicadores["unidades"])],
         ["Dias com registros", str(indicadores["dias_registrados"])],
-        ["Média por dia com registros", f"{indicadores['media_por_dia']:.2f}"],
+        [
+            "Média por dia com registros",
+            f"{indicadores['media_por_dia']:.2f}",
+        ],
     ]
 
     tabela_resumo = Table(resumo, colWidths=[210, 110], hAlign="LEFT")

@@ -143,6 +143,17 @@ def migrar_usuarios_v200(conexao):
             (ultimo_id,),
         )
 
+        # V2.0.0: adiciona quantidades aos serviços.
+        # Os registros existentes recebem quantidade 1.
+        conexao.execute("""
+            ALTER TABLE presenca_servicos
+            ADD COLUMN quantidade INTEGER NOT NULL DEFAULT 1
+                CHECK (
+                    typeof(quantidade) = 'integer'
+                    AND quantidade >= 1
+                )
+        """)
+
         conexao.execute("PRAGMA user_version = 2")
 
         conexao.commit()

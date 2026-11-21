@@ -1296,3 +1296,19 @@ def buscar_presenca(pessoa_id, data=None, ator_id=None):
         ).fetchone()
 
     return dict(registro) if registro else None
+
+
+def _tem_coluna_quantidade_servico(conexao):
+    """
+    Verifica se o banco possui suporte a quantidades
+    nos serviços de atendimento.
+
+    V1/V2: False
+    V3: True
+
+    Não modifica o banco.
+    """
+
+    colunas = conexao.execute("PRAGMA table_info(presenca_servicos)").fetchall()
+
+    return any(coluna[1] == "quantidade" for coluna in colunas)

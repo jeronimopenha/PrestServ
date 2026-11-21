@@ -38,6 +38,8 @@ COLUNAS_RELATORIO = {
     "documento": "Documento",
     "telefone": "Telefone",
     "fotografia": "Fotografia",
+    "unidades": "Unidades distribuídas",
+    "unidades_servicos": "Unidades distribuídas",
 }
 
 
@@ -167,16 +169,13 @@ def tela_relatorios():
 
         c1.metric("Pessoas distintas", resumo["pessoas"])
         c2.metric("Presenças", resumo["presencas"])
-        c3.metric("Serviços prestados", resumo["servicos"])
+        c3.metric("Serviços registrados", resumo["servicos"])
 
-        c4, c5 = st.columns(2)
+        c4, c5, c6 = st.columns(3)
 
-        c4.metric(
-            "Dias com registros",
-            resumo["dias_registrados"],
-        )
-
-        c5.metric(
+        c4.metric("Unidades distribuídas", resumo["unidades"])
+        c5.metric("Dias com registros", resumo["dias_registrados"])
+        c6.metric(
             "Média de presenças/dia registrado",
             f"{resumo['media_por_dia']:.2f}",
         )
@@ -185,7 +184,7 @@ def tela_relatorios():
         st.write("### Serviços prestados")
 
         if not por_servico.empty:
-            st.bar_chart(por_servico.set_index("servico")["quantidade"])
+            grafico_servicos(por_servico)
             tabela_relatorio(por_servico)
         else:
             st.info("Sem serviços registrados no período.")
@@ -264,13 +263,19 @@ def tela_relatorios():
     st.divider()
 
     c1, c2, c3 = st.columns(3)
+
     c1.metric("Pessoas distintas", resumo["pessoas"])
     c2.metric("Presenças", resumo["presencas"])
-    c3.metric("Serviços prestados", resumo["servicos"])
+    c3.metric("Serviços registrados", resumo["servicos"])
 
-    c4, c5 = st.columns(2)
-    c4.metric("Dias com registros", resumo["dias_registrados"])
-    c5.metric("Média de presenças/dia registrado", f"{resumo['media_por_dia']:.2f}")
+    c4, c5, c6 = st.columns(3)
+
+    c4.metric("Unidades distribuídas", resumo["unidades"])
+    c5.metric("Dias com registros", resumo["dias_registrados"])
+    c6.metric(
+        "Média de presenças/dia registrado",
+        f"{resumo['media_por_dia']:.2f}",
+    )
 
     st.divider()
 
@@ -280,8 +285,15 @@ def tela_relatorios():
         st.write("### Serviços prestados")
 
         if not por_servico.empty:
-            st.bar_chart(por_servico.set_index("servico")["quantidade"])
+            grafico_servicos(por_servico)
             tabela_relatorio(por_servico)
+
+            botao_csv(
+                "Exportar serviços (CSV)",
+                por_servico,
+                "prestserv_servicos.csv",
+                ator_id=st.session_state["usuario"]["id"],
+            )
         else:
             st.info("Sem serviços registrados no período.")
 
@@ -396,3 +408,23 @@ def tela_relatorios():
         type="primary",
         width="stretch",
     )
+
+
+def grafico_servicos(df):
+    """
+    Exibe registros de serviços e unidades distribuídas.
+    Utiliza somente dados agregados.
+    """
+
+    if df.empty:
+        st.info("Sem serviços registrados no período.")
+        return
+
+    dados = df.set_index("servico")[["quantidade", "unidades"]].rename(
+        columns={
+            "quantidade": "Registros do serviço",
+            "unidades": "Unidades distribuídas",
+        }
+    )
+
+    st.bar_chart(dados)
