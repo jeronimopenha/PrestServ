@@ -13,6 +13,7 @@ import pandas as pd
 import streamlit as st
 
 from database import conectar, data_atual
+from pdf_relatorios import gerar_pdf_entradas
 from entradas import (
     atualizar_entrada,
     excluir_entrada,
@@ -296,6 +297,31 @@ def tela_entradas():
             mime="text/csv",
             width="stretch",
         )
+
+        # Gera o PDF utilizando os mesmos registros
+        # e filtros aplicados à consulta e ao CSV.
+        try:
+            conteudo_pdf = gerar_pdf_entradas(
+                registros,
+                ator_id=ator_id,
+                inicio=inicio,
+                fim=fim,
+                tipo=tipo_filtro,
+                categoria=categoria or None,
+            )
+
+        except (ValueError, PermissionError) as erro:
+            st.error(f"Não foi possível gerar o PDF: {erro}")
+
+        else:
+            st.download_button(
+                "Baixar entradas (PDF)",
+                data=conteudo_pdf,
+                file_name=(f"prestserv_entradas_{hoje:%Y%m%d}.pdf"),
+                mime="application/pdf",
+                width="stretch",
+                key="baixar_pdf_entradas",
+            )
 
         st.caption("Selecione uma linha para editar ou excluir o lançamento.")
         assinatura = sha256(
