@@ -1372,3 +1372,85 @@ def normalizar_quantidades_servicos(servicos):
         resultado[servico_id] = quantidade
 
     return resultado
+
+
+def listar_atendimentos_data(data=None, ator_id=None):
+    """
+    Lista as pessoas com atendimento registrado em uma data.
+
+    O porteiro consulta somente a data atual.
+    Não representa controle de entrada e saída do recinto.
+    """
+
+    data = data_atual() if data is None else data
+
+    try:
+        if not isinstance(data, str):
+            raise ValueError()
+
+        data_validada = date.fromisoformat(data)
+
+        if data != data_validada.isoformat():
+            raise ValueError()
+
+    except ValueError:
+        raise ValueError("Data de atendimento inválida.") from None
+
+    hoje = data_atual()
+
+    with conectar() as conexao:
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "consultar_pessoas",
+        )
+
+        if data > hoje:
+            raise ValueError("Não é permitido consultar atendimentos futuros.")
+
+        if perfil == "porteiro" and data != hoje:
+            raise PermissionError(
+                "O porteiro só pode consultar " "os atendimentos da data atual."
+            )
+
+        registros = conexao.execute(
+            """
+            SELECT
+                p.id AS presenca_id,
+                pe.id AS pessoa_id,
+                pe.nome AS pessoa,
+
+                COALESCE(
+                    GROUP_CONCAT(
+                        s.nome || ' (' || ps.quantidade || ')',
+                        ', '
+                    ),
+                    ''
+                ) AS servicos,
+
+                COALESCE(
+                    SUM(ps.quantidade),
+                    0
+                ) AS unidades
+
+            FROM presencas p
+
+            JOIN pessoas pe
+                ON pe.id = p.pessoa_id
+
+            LEFT JOIN presenca_servicos ps
+                ON ps.presenca_id = p.id
+
+            LEFT JOIN servicos s
+                ON s.id = ps.servico_id
+
+            WHERE p.data = ?
+
+            GROUP BY p.id, pe.id, pe.nome
+
+            ORDER BY p.id DESC
+            """,
+            (data,),
+        ).fetchall()
+
+    return [dict(registro) for registro in registros]

@@ -33,7 +33,7 @@ st.markdown(
     width: 260px;
     padding-top: 12px;
     border-top: 1px solid #555555;
-    background-color: #2b2b33;
+    background-color: var(--secondary-background-color);
     z-index: 100;
 }
 </style>
