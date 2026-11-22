@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 
-from database import data_atual, listar_pessoas_admin, conectar
+from database import data_atual, listar_pessoas_admin, conectar, registrar_log
 from consultas_relatorios import (
     indicadores,
     presencas_detalhadas,
@@ -66,6 +66,36 @@ def inicio_ano(d):
     return d.replace(month=1, day=1)
 
 
+def registrar_download_csv_relatorio(ator_id, nome_arquivo, total_linhas):
+    """Registra a solicitação de exportação CSV."""
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "exportar_relatorios",
+        )
+
+        operador = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        registrar_log(
+            conexao,
+            acao="exportar_relatorio_csv",
+            usuario_id=ator_id,
+            usuario_login=operador["login"],
+            entidade="relatorios",
+            detalhes={
+                "arquivo": nome_arquivo,
+                "total_linhas": total_linhas,
+            },
+        )
+
+
 def botao_csv(titulo, df, nome, ator_id):
     """
     Disponibiliza a exportação CSV de um relatório.
@@ -91,8 +121,42 @@ def botao_csv(titulo, df, nome, ator_id):
         data=dados_csv,
         file_name=nome,
         mime="text/csv",
-        use_container_width=True,
+        width="stretch",
+        on_click=registrar_download_csv_relatorio,
+        args=(ator_id, nome, len(df)),
     )
+
+
+def registrar_download_pdf_relatorio(ator_id, tipo, inicio, fim, pessoa_id):
+    """Registra a solicitação de download de um relatório PDF."""
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "exportar_relatorios",
+        )
+
+        operador = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        registrar_log(
+            conexao,
+            acao="exportar_relatorio_pdf",
+            usuario_id=ator_id,
+            usuario_login=operador["login"],
+            entidade="relatorios",
+            detalhes={
+                "tipo": tipo,
+                "inicio": inicio,
+                "fim": fim,
+                "pessoa_id": pessoa_id,
+            },
+        )
 
 
 def tela_relatorios():
@@ -407,6 +471,14 @@ def tela_relatorios():
         mime="application/pdf",
         type="primary",
         width="stretch",
+        on_click=registrar_download_pdf_relatorio,
+        args=(
+            ator_id,
+            tipo_pdf,
+            inicio_sql,
+            fim_sql,
+            pessoa_id,
+        ),
     )
 
 

@@ -12,7 +12,7 @@ import re
 import pandas as pd
 import streamlit as st
 
-from database import conectar, data_atual
+from database import conectar, data_atual, registrar_log
 from pdf_relatorios import gerar_pdf_entradas
 from entradas import (
     atualizar_entrada,
@@ -173,6 +173,42 @@ def _tabela(registros):
     )
 
 
+def registrar_exportacao_entradas(
+    ator_id, formato, inicio, fim, tipo, categoria, total_registros
+):
+    """Registra a solicitação de exportação de entradas."""
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerenciar_entradas",
+        )
+
+        operador = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        registrar_log(
+            conexao,
+            acao=f"exportar_entradas_{formato}",
+            usuario_id=ator_id,
+            usuario_login=operador["login"],
+            entidade="entradas",
+            detalhes={
+                "formato": formato,
+                "inicio": inicio,
+                "fim": fim,
+                "tipo": tipo,
+                "categoria": categoria,
+                "total_registros": total_registros,
+            },
+        )
+
+
 def tela_entradas():
     ator = st.session_state["usuario"]
     ator_id = ator["id"]
@@ -296,6 +332,16 @@ def tela_entradas():
             file_name=f"prestserv_entradas_{hoje.isoformat()}.csv",
             mime="text/csv",
             width="stretch",
+            on_click=registrar_exportacao_entradas,
+            args=(
+                ator_id,
+                "csv",
+                inicio.isoformat() if inicio is not None else None,
+                fim.isoformat() if fim is not None else None,
+                tipo_filtro,
+                categoria or None,
+                len(registros),
+            ),
         )
 
         # Gera o PDF utilizando os mesmos registros
@@ -321,6 +367,16 @@ def tela_entradas():
                 mime="application/pdf",
                 width="stretch",
                 key="baixar_pdf_entradas",
+                on_click=registrar_exportacao_entradas,
+                args=(
+                    ator_id,
+                    "pdf",
+                    inicio.isoformat() if inicio is not None else None,
+                    fim.isoformat() if fim is not None else None,
+                    tipo_filtro,
+                    categoria or None,
+                    len(registros),
+                ),
             )
 
         st.caption("Selecione uma linha para editar ou excluir o lançamento.")
