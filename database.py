@@ -779,6 +779,10 @@ def cadastrar_pessoa(
     contato_telefone=None,
     ator_id=None,
     ator_login=None,
+    *,
+    endereco=None,
+    observacoes=None,
+    autorizado_refeicao_local=None,
 ):
     """Cadastra uma pessoa atendida, verificando a autorização."""
 
@@ -786,6 +790,21 @@ def cadastrar_pessoa(
 
     if not nome:
         raise ValueError("O nome é obrigatório.")
+
+    if endereco is not None and not isinstance(endereco, str):
+        raise ValueError("Endereço inválido.")
+
+    if observacoes is not None and not isinstance(observacoes, str):
+        raise ValueError("Observações inválidas.")
+
+    if autorizado_refeicao_local is not None and (
+        type(autorizado_refeicao_local) is not int
+        or autorizado_refeicao_local not in (0, 1)
+    ):
+        raise ValueError("Autorização de refeição inválida.")
+
+    endereco = endereco.strip() or None if endereco else None
+    observacoes = observacoes.strip() or None if observacoes else None
 
     with conectar() as conexao:
         conexao.execute("BEGIN IMMEDIATE")
@@ -811,9 +830,11 @@ def cadastrar_pessoa(
             """
             INSERT INTO pessoas (
                 nome, documento, telefone,
-                contato_nome, contato_telefone
+                contato_nome, contato_telefone,
+                endereco, observacoes,
+                autorizado_refeicao_local
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nome,
@@ -821,6 +842,9 @@ def cadastrar_pessoa(
                 telefone.strip() or None if telefone else None,
                 contato_nome.strip() or None if contato_nome else None,
                 contato_telefone.strip() or None if contato_telefone else None,
+                endereco,
+                observacoes,
+                autorizado_refeicao_local,
             ),
         )
 

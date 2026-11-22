@@ -171,6 +171,29 @@ def migrar_usuarios_v200(conexao):
                 )
         """)
 
+        # V2.0.0: informações complementares dos cadastros.
+        conexao.execute("""
+            ALTER TABLE pessoas
+            ADD COLUMN endereco TEXT
+        """)
+
+        conexao.execute("""
+            ALTER TABLE pessoas
+            ADD COLUMN observacoes TEXT
+        """)
+
+        # NULL: não informado
+        # 0: não autorizado
+        # 1: autorizado
+        conexao.execute("""
+            ALTER TABLE pessoas
+            ADD COLUMN autorizado_refeicao_local INTEGER
+                DEFAULT NULL
+                CHECK (
+                    autorizado_refeicao_local IN (0, 1)
+                )
+        """)
+
         conexao.execute("PRAGMA user_version = 2")
 
         conexao.commit()
