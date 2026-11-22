@@ -116,30 +116,68 @@ def tela_presencas():
         )
     else:
         st.info("Nenhum atendimento registrado nesta data.")
-        servicos_marcados = []
+        servicos_marcados = {}
 
     servicos = listar_servicos(ator_id=st.session_state["usuario"]["id"])
 
     # Identifica a combinação pessoa + data.
     atendimento_atual = (pessoa_id, data)
 
-    # Inicializa os checkboxes ao trocar de pessoa ou data.
+    # Inicializa os campos ao trocar de pessoa ou data.
     if st.session_state.get("atendimento_atual") != atendimento_atual:
         for servico in servicos:
-            chave = f"servico_{servico['id']}"
-            st.session_state[chave] = servico["id"] in servicos_marcados
+            servico_id = servico["id"]
+
+            st.session_state[f"servico_{servico_id}"] = servico_id in servicos_marcados
+
+            st.session_state[f"quantidade_{servico_id}"] = servicos_marcados.get(
+                servico_id, 1
+            )
 
         st.session_state["atendimento_atual"] = atendimento_atual
 
     st.write("**Serviços utilizados:**")
 
-    selecionados = []
+    coluna_titulo, coluna_quantidade = st.columns(
+        [2, 1],
+        vertical_alignment="center",
+    )
+
+    with coluna_titulo:
+        st.caption("Serviço")
+
+    with coluna_quantidade:
+        st.caption("Quantidade")
+
+    selecionados = {}
 
     for servico in servicos:
-        marcado = st.checkbox(servico["nome"], key=f"servico_{servico['id']}")
+        servico_id = servico["id"]
+
+        col_servico, col_quantidade = st.columns(
+            [2, 1],
+            vertical_alignment="center",
+            gap="small",
+        )
+
+        with col_servico:
+            marcado = st.checkbox(
+                servico["nome"],
+                key=f"servico_{servico_id}",
+            )
+
+        with col_quantidade:
+            quantidade = st.number_input(
+                f"Quantidade de {servico['nome']}",
+                min_value=1,
+                step=1,
+                key=f"quantidade_{servico_id}",
+                disabled=not marcado,
+                label_visibility="collapsed",
+            )
 
         if marcado:
-            selecionados.append(servico["id"])
+            selecionados[servico_id] = int(quantidade)
 
     st.divider()
 
