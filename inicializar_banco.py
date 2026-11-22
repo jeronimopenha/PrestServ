@@ -3,6 +3,7 @@ import sqlite3
 from database import DB_PATH
 from estrutura_v110 import criar_estrutura_logs
 from estrutura_v200 import migrar_usuarios_v200
+from estrutura_entradas import criar_estrutura_entradas
 
 
 def inicializar_banco():
@@ -111,6 +112,14 @@ def inicializar_banco():
         criar_estrutura_logs(conexao)
         if instalacao_nova:
             migrar_usuarios_v200(conexao)
+
+        criar_estrutura_logs(conexao)
+
+        if instalacao_nova:
+            migrar_usuarios_v200(conexao)
+
+        # Garante a estrutura de entradas de doações e compras.
+        criar_estrutura_entradas(conexao)
 
 
 if __name__ == "__main__":

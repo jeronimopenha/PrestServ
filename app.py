@@ -18,6 +18,7 @@ from inicializar_banco import inicializar_banco
 from tela_backups import tela_backups
 from estrutura_v110 import consultar_vinculos
 from tela_logs import tela_logs
+from tela_entradas import tela_entradas
 from permissoes import PERFIS, tem_permissao
 from common import BASIC_TITTLE, VERSAO, ANO
 
@@ -368,6 +369,7 @@ def main():
         paginas = [
             "Presenças",
             "Cadastros",
+            "Entradas",
             "Relatórios",
         ]
 
@@ -392,6 +394,9 @@ def main():
 
         elif pagina == "Cadastros":
             tela_cadastros()
+
+        elif pagina == "Entradas":
+            tela_entradas()
 
         elif pagina == "Relatórios":
             tela_relatorios()
@@ -420,11 +425,14 @@ def main():
     elif perfil == "secretaria":
         pagina = st.sidebar.radio(
             "Navegação",
-            ["Cadastros"],
+            ["Cadastros", "Entradas"],
         )
 
         if pagina == "Cadastros":
             tela_cadastros()
+
+        elif pagina == "Entradas":
+            tela_entradas()
 
     else:
         st.error("Perfil de usuário inválido.")
