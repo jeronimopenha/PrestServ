@@ -20,6 +20,8 @@ from estrutura_v110 import consultar_vinculos
 from tela_logs import tela_logs
 from tela_entradas import tela_entradas
 from tela_cadastros_voluntarios import tela_cadastros_voluntarios
+from tela_presencas_voluntarios import tela_presencas_voluntarios
+from tela_relatorios_voluntarios import tela_relatorios_voluntarios
 from permissoes import PERFIS, tem_permissao
 from common import BASIC_TITTLE, VERSAO, ANO
 
@@ -368,10 +370,12 @@ def main():
 
     if perfil in ("superadmin", "admin"):
         paginas = [
+            "Presenças de voluntários",
             "Presenças",
             "Cadastros",
             "Entradas",
             "Relatórios",
+            "Relatórios de voluntários",
             "Cadastro de voluntários",
         ]
 
@@ -394,6 +398,9 @@ def main():
         if pagina == "Presenças":
             tela_presencas()
 
+        elif pagina == "Presenças de voluntários":
+            tela_presencas_voluntarios()
+
         elif pagina == "Cadastros":
             tela_cadastros()
 
@@ -406,6 +413,9 @@ def main():
         elif pagina == "Relatórios":
             tela_relatorios()
 
+        elif pagina == "Relatórios de voluntários":
+            tela_relatorios_voluntarios()
+
         elif pagina == "Logs do sistema":
             tela_logs()
 
@@ -416,16 +426,34 @@ def main():
             painel_admin()
 
     elif perfil == "porteiro":
-        tela_presencas()
+        pagina = st.sidebar.radio(
+            "Navegação",
+            [
+                "Presenças",
+                "Presenças de voluntários",
+            ],
+        )
+
+        if pagina == "Presenças":
+            tela_presencas()
+
+        elif pagina == "Presenças de voluntários":
+            tela_presencas_voluntarios()
 
     elif perfil == "consulta":
         pagina = st.sidebar.radio(
             "Navegação",
-            ["Relatórios"],
+            [
+                "Relatórios",
+                "Relatórios de voluntários",
+            ],
         )
 
         if pagina == "Relatórios":
             tela_relatorios()
+
+        elif pagina == "Relatórios de voluntários":
+            tela_relatorios_voluntarios()
 
     elif perfil == "secretaria":
         pagina = st.sidebar.radio(

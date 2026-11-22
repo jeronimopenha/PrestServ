@@ -1,6 +1,7 @@
 """Operações de cadastro dos voluntários."""
 
-from database import conectar, registrar_log
+from datetime import date
+from database import conectar, registrar_log, data_atual
 from permissoes import exigir_permissao_usuario, tem_permissao
 from io import BytesIO
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -497,6 +498,271 @@ def remover_foto_voluntario(voluntario_id, *, ator_id):
             usuario_login=operador["login"],
             entidade="voluntarios",
             entidade_id=voluntario_id,
+        )
+
+        return True
+
+
+def registrar_presenca_voluntario(voluntario_id, data=None, *, ator_id):
+    """
+    Registra a presença de um voluntário.
+
+    Retorna:
+        True: presença registrada.
+        False: presença já existente.
+    """
+
+    _validar_id(voluntario_id)
+
+    hoje = data_atual()
+    data = hoje if data is None else data
+
+    try:
+        if not isinstance(data, str):
+            raise ValueError()
+
+        data_validada = date.fromisoformat(data)
+
+        if data != data_validada.isoformat():
+            raise ValueError()
+
+    except ValueError:
+        raise ValueError("Data de presença inválida.") from None
+
+    if data_validada > date.fromisoformat(hoje):
+        raise ValueError("Não é permitido registrar presenças futuras.")
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "registrar_presenca_voluntarios",
+        )
+
+        # Datas anteriores são restritas aos administradores.
+        if data != hoje:
+            exigir_permissao_usuario(
+                conexao,
+                ator_id,
+                "alterar_data_presenca_voluntarios",
+            )
+
+        voluntario = conexao.execute(
+            """
+            SELECT ativo
+            FROM voluntarios
+            WHERE id = ?
+            """,
+            (voluntario_id,),
+        ).fetchone()
+
+        if voluntario is None:
+            raise ValueError("Voluntário não encontrado.")
+
+        if not voluntario["ativo"]:
+            raise ValueError(
+                "Não é permitido registrar presença " "de um voluntário inativo."
+            )
+
+        anterior = conexao.execute(
+            """
+            SELECT id
+            FROM presencas_voluntarios
+            WHERE voluntario_id = ?
+              AND data = ?
+            """,
+            (voluntario_id, data),
+        ).fetchone()
+
+        if anterior is not None:
+            return False
+
+        cursor = conexao.execute(
+            """
+            INSERT INTO presencas_voluntarios (
+                voluntario_id,
+                data,
+                usuario_id
+            )
+            VALUES (?, ?, ?)
+            """,
+            (voluntario_id, data, ator_id),
+        )
+
+        operador = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        registrar_log(
+            conexao,
+            acao="registrar_presenca_voluntario",
+            usuario_id=ator_id,
+            usuario_login=operador["login"],
+            entidade="presencas_voluntarios",
+            entidade_id=cursor.lastrowid,
+            detalhes={
+                "voluntario_id": voluntario_id,
+                "data": data,
+            },
+        )
+
+        return True
+
+
+def _validar_data_presenca_voluntario(data):
+    """Normaliza uma data e impede datas futuras."""
+
+    hoje = data_atual()
+    data = hoje if data is None else data
+
+    try:
+        if not isinstance(data, str):
+            raise ValueError()
+
+        data_validada = date.fromisoformat(data)
+
+        if data != data_validada.isoformat():
+            raise ValueError()
+
+    except ValueError:
+        raise ValueError("Data de presença inválida.") from None
+
+    if data_validada > date.fromisoformat(hoje):
+        raise ValueError("Não é permitido consultar ou alterar presenças futuras.")
+
+    return data, hoje
+
+
+def listar_presencas_voluntarios(data=None, *, ator_id):
+    """Lista as presenças de voluntários em uma data."""
+
+    with conectar() as conexao:
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "registrar_presenca_voluntarios",
+        )
+
+        data, hoje = _validar_data_presenca_voluntario(data)
+
+        if data != hoje:
+            exigir_permissao_usuario(
+                conexao,
+                ator_id,
+                "alterar_data_presenca_voluntarios",
+            )
+
+        # Porteiros só visualizam voluntários ativos.
+        filtro_ativos = "AND v.ativo = 1" if perfil == "porteiro" else ""
+
+        registros = conexao.execute(
+            f"""
+            SELECT
+                p.id,
+                p.voluntario_id,
+                v.nome,
+                v.ativo,
+                p.data,
+                p.criado_em
+            FROM presencas_voluntarios AS p
+            JOIN voluntarios AS v
+              ON v.id = p.voluntario_id
+            WHERE p.data = ?
+            {filtro_ativos}
+            ORDER BY v.nome COLLATE NOCASE, p.id
+            """,
+            (data,),
+        ).fetchall()
+
+        return [dict(registro) for registro in registros]
+
+
+def remover_presenca_voluntario(voluntario_id, data=None, *, ator_id):
+    """
+    Remove uma presença respeitando datas e permissões.
+
+    Retorna:
+        True: presença removida.
+        False: presença inexistente.
+    """
+
+    _validar_id(voluntario_id)
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        perfil = exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "registrar_presenca_voluntarios",
+        )
+
+        data, hoje = _validar_data_presenca_voluntario(data)
+
+        if data != hoje:
+            exigir_permissao_usuario(
+                conexao,
+                ator_id,
+                "alterar_data_presenca_voluntarios",
+            )
+
+        voluntario = conexao.execute(
+            """
+            SELECT ativo
+            FROM voluntarios
+            WHERE id = ?
+            """,
+            (voluntario_id,),
+        ).fetchone()
+
+        if voluntario is None:
+            raise ValueError("Voluntário não encontrado.")
+
+        if perfil == "porteiro" and not voluntario["ativo"]:
+            raise PermissionError(
+                "O porteiro não pode alterar presenças " "de voluntários inativos."
+            )
+
+        presenca = conexao.execute(
+            """
+            SELECT id
+            FROM presencas_voluntarios
+            WHERE voluntario_id = ?
+              AND data = ?
+            """,
+            (voluntario_id, data),
+        ).fetchone()
+
+        if presenca is None:
+            return False
+
+        conexao.execute(
+            """
+            DELETE FROM presencas_voluntarios
+            WHERE id = ?
+            """,
+            (presenca["id"],),
+        )
+
+        operador = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        registrar_log(
+            conexao,
+            acao="remover_presenca_voluntario",
+            usuario_id=ator_id,
+            usuario_login=operador["login"],
+            entidade="presencas_voluntarios",
+            entidade_id=presenca["id"],
+            detalhes={
+                "voluntario_id": voluntario_id,
+                "data": data,
+            },
         )
 
         return True
