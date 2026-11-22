@@ -55,6 +55,28 @@ def novo_cadastro():
         contato_nome = st.text_input("Nome do contato")
         contato_telefone = st.text_input("Telefone do contato")
 
+        endereco = st.text_input("Endereço")
+
+        observacoes = st.text_area(
+            "Observações",
+            placeholder="Informações adicionais sobre a pessoa atendida",
+        )
+
+        autorizado_refeicao_local = st.selectbox(
+            "Autorização para realizar refeições no recinto",
+            options=[None, 1, 0],
+            format_func=lambda valor: {
+                None: "Não informado",
+                1: "Autorizado",
+                0: "Não autorizado",
+            }[valor],
+            help=(
+                "Essa informação não impede a prestação "
+                "de serviços. Apenas identifica se a pessoa "
+                "pode realizar refeições dentro do recinto."
+            ),
+        )
+
         foto = st.file_uploader(
             "Fotografia", type=["jpg", "jpeg", "png", "webp"], key="foto_nova"
         )
@@ -80,6 +102,9 @@ def novo_cadastro():
                 contato_telefone,
                 ator_id=ator["id"],
                 ator_login=ator["login"],
+                endereco=endereco,
+                observacoes=observacoes,
+                autorizado_refeicao_local=autorizado_refeicao_local,
             )
 
             if foto_jpeg is not None:
@@ -166,6 +191,33 @@ def editar_cadastro():
             "Telefone do contato", value=campo_texto(pessoa["contato_telefone"])
         )
 
+        endereco = st.text_input(
+            "Endereço",
+            value=campo_texto(pessoa["endereco"]),
+        )
+
+        observacoes = st.text_area(
+            "Observações",
+            value=campo_texto(pessoa["observacoes"]),
+        )
+
+        opcoes_autorizacao = [None, 1, 0]
+
+        autorizado_refeicao_local = st.selectbox(
+            "Autorização para realizar refeições no recinto",
+            options=opcoes_autorizacao,
+            index=opcoes_autorizacao.index(pessoa["autorizado_refeicao_local"]),
+            format_func=lambda valor: {
+                None: "Não informado",
+                1: "Autorizado",
+                0: "Não autorizado",
+            }[valor],
+            help=(
+                "Pessoas não autorizadas podem receber "
+                "serviços externos normalmente."
+            ),
+        )
+
         nova_foto = st.file_uploader(
             "Substituir fotografia",
             type=["jpg", "jpeg", "png", "webp"],
@@ -195,6 +247,9 @@ def editar_cadastro():
                 contato_telefone,
                 ator_id=ator["id"],
                 ator_login=ator["login"],
+                endereco=endereco,
+                observacoes=observacoes,
+                autorizado_refeicao_local=autorizado_refeicao_local,
             )
 
             if foto_jpeg is not None:

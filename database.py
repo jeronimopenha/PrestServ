@@ -156,6 +156,9 @@ def buscar_pessoa(pessoa_id, ator_id):
                 telefone,
                 contato_nome,
                 contato_telefone,
+                endereco,
+                observacoes,
+                autorizado_refeicao_local,
                 ativo,
                 criado_em
             FROM pessoas
@@ -180,6 +183,8 @@ def buscar_pessoa(pessoa_id, ator_id):
             "telefone",
             "contato_nome",
             "contato_telefone",
+            "endereco",
+            "observacoes",
         ):
             dados[campo] = None
 
@@ -862,6 +867,9 @@ def cadastrar_pessoa(
         return pessoa_id
 
 
+_NAO_ALTERAR = object()
+
+
 def atualizar_pessoa(
     pessoa_id,
     nome,
@@ -871,8 +879,12 @@ def atualizar_pessoa(
     contato_telefone=None,
     ator_id=None,
     ator_login=None,
+    *,
+    endereco=_NAO_ALTERAR,
+    observacoes=_NAO_ALTERAR,
+    autorizado_refeicao_local=_NAO_ALTERAR,
 ):
-    """Atualiza uma pessoa, verificando a autorização."""
+    """Atualiza os dados de uma pessoa atendida."""
 
     nome = nome.strip()
 
@@ -889,17 +901,36 @@ def atualizar_pessoa(
         ),
     }
 
+    campos_adicionais = {
+        "endereco": endereco,
+        "observacoes": observacoes,
+        "autorizado_refeicao_local": autorizado_refeicao_local,
+    }
+
+    for campo, valor in campos_adicionais.items():
+        if valor is _NAO_ALTERAR:
+            continue
+
+        if campo == "autorizado_refeicao_local":
+            if valor is not None and (type(valor) is not int or valor not in (0, 1)):
+                raise ValueError("Autorização de refeição inválida.")
+        else:
+            if valor is not None and not isinstance(valor, str):
+                raise ValueError(f"Valor inválido para {campo}.")
+
+            valor = valor.strip() or None if valor else None
+
+        novos_dados[campo] = valor
+
     with conectar() as conexao:
         conexao.execute("BEGIN IMMEDIATE")
 
-        # Verifica a autorização diretamente no SQLite.
         exigir_permissao_usuario(
             conexao,
             ator_id,
             "editar_pessoas",
         )
 
-        # Obtém o login verdadeiro do operador.
         ator = conexao.execute(
             "SELECT login FROM usuarios WHERE id = ?",
             (ator_id,),
@@ -907,8 +938,11 @@ def atualizar_pessoa(
 
         anterior = conexao.execute(
             """
-            SELECT nome, documento, telefone,
-                   contato_nome, contato_telefone
+            SELECT
+                nome, documento, telefone,
+                contato_nome, contato_telefone,
+                endereco, observacoes,
+                autorizado_refeicao_local
             FROM pessoas
             WHERE id = ?
             """,
@@ -923,35 +957,30 @@ def atualizar_pessoa(
         for campo, valor_novo in novos_dados.items():
             valor_antigo = anterior[campo]
 
-            if valor_antigo != valor_novo:
-                # Não registra documentos ou telefones nos logs.
+            if valor_antigo == valor_novo:
+                continue
+
+            if campo == "autorizado_refeicao_local":
+                alteracoes[campo] = {
+                    "antes": valor_antigo,
+                    "depois": valor_novo,
+                }
+            else:
+                # Não expõe dados pessoais nos logs.
                 alteracoes[campo] = {
                     "antes_preenchido": bool(valor_antigo),
                     "depois_preenchido": bool(valor_novo),
                 }
 
-        # Se nada mudou, não grava nem registra log.
+        # Não grava nem gera log quando nada mudou.
         if not alteracoes:
             return
 
+        campos_sql = ", ".join(f"{campo} = ?" for campo in novos_dados)
+
         conexao.execute(
-            """
-            UPDATE pessoas
-            SET nome = ?,
-                documento = ?,
-                telefone = ?,
-                contato_nome = ?,
-                contato_telefone = ?
-            WHERE id = ?
-            """,
-            (
-                novos_dados["nome"],
-                novos_dados["documento"],
-                novos_dados["telefone"],
-                novos_dados["contato_nome"],
-                novos_dados["contato_telefone"],
-                pessoa_id,
-            ),
+            f"UPDATE pessoas SET {campos_sql} WHERE id = ?",
+            (*novos_dados.values(), pessoa_id),
         )
 
         registrar_log(
@@ -1443,6 +1472,7 @@ def listar_atendimentos_data(data=None, ator_id=None):
                 p.id AS presenca_id,
                 pe.id AS pessoa_id,
                 pe.nome AS pessoa,
+                pe.autorizado_refeicao_local AS autorizado_refeicao_local,
 
                 COALESCE(
                     GROUP_CONCAT(
@@ -1470,7 +1500,11 @@ def listar_atendimentos_data(data=None, ator_id=None):
 
             WHERE p.data = ?
 
-            GROUP BY p.id, pe.id, pe.nome
+            GROUP BY
+                p.id,
+                pe.id,
+                pe.nome,
+                pe.autorizado_refeicao_local
 
             ORDER BY p.id DESC
             """,

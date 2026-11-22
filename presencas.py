@@ -1,6 +1,7 @@
-from datetime import date, datetime
-
+import pandas as pd
 import streamlit as st
+
+from datetime import date, datetime
 
 from database import (
     data_atual,
@@ -81,12 +82,28 @@ def tela_presencas():
             for registro in atendimentos
         ]
 
+        # Prepara a grade com destaque para atendimento externo.
+        tabela = pd.DataFrame(dados_grade)
+
+        def destacar_restricao(linha):
+            autorizacao = atendimentos[linha.name]["autorizado_refeicao_local"]
+
+            if autorizacao == 0:
+                return ["background-color: #FCE4EC; color: #5D102A"] * len(linha)
+
+            return [""] * len(linha)
+
+        tabela_estilizada = tabela.style.apply(
+            destacar_restricao,
+            axis=1,
+        )
+
         # Exibe até 7 linhas antes de habilitar a rolagem.
         linhas_visiveis = min(len(atendimentos), 7)
         altura_grade = 40 + (linhas_visiveis * 35)
 
         evento = st.dataframe(
-            dados_grade,
+            tabela_estilizada,
             hide_index=True,
             width="stretch",
             height=altura_grade,
@@ -149,6 +166,9 @@ def tela_presencas():
             st.error("Pessoa não encontrada.")
             return
 
+        if pessoa["autorizado_refeicao_local"] == 0:
+            st.error("🚨 ATENDIMENTO EXTERNO — NÃO AUTORIZAR ENTRADA")
+
         col_foto, col_dados = st.columns([1, 2])
 
         with col_foto:
@@ -198,7 +218,9 @@ def tela_presencas():
             for servico in servicos:
                 servico_id = servico["id"]
 
-                st.session_state[f"servico_{servico_id}"] = servico_id in servicos_marcados
+                st.session_state[f"servico_{servico_id}"] = (
+                    servico_id in servicos_marcados
+                )
 
                 st.session_state[f"quantidade_{servico_id}"] = servicos_marcados.get(
                     servico_id, 1
@@ -252,7 +274,9 @@ def tela_presencas():
         st.divider()
 
         if presenca:
-            texto_botao = "Atualizar atendimento" if selecionados else "Remover atendimento"
+            texto_botao = (
+                "Atualizar atendimento" if selecionados else "Remover atendimento"
+            )
         else:
             texto_botao = "Registrar atendimento"
 
