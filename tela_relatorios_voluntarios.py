@@ -14,6 +14,11 @@ from consultas_voluntarios import (
     relatorio_cadastros_voluntarios,
     historico_presencas_voluntario,
 )
+from pdf_voluntarios import (
+    gerar_pdf_ranking_voluntarios,
+    gerar_pdf_cadastros_voluntarios,
+    gerar_pdf_historico_voluntario,
+)
 
 
 def _selecionar_periodo():
@@ -308,6 +313,35 @@ def tela_relatorios_voluntarios():
                     ),
                 )
 
+            if tem_permissao(perfil, "exportar_relatorios_voluntarios"):
+                try:
+                    conteudo_pdf = gerar_pdf_ranking_voluntarios(
+                        inicio,
+                        fim,
+                        ator_id=ator_id,
+                    )
+                except (ValueError, PermissionError) as erro:
+                    st.error(str(erro))
+                else:
+                    st.download_button(
+                        "Baixar ranking (PDF)",
+                        data=conteudo_pdf,
+                        file_name=(
+                            f"prestserv_ranking_voluntarios_" f"{inicio}_{fim}.pdf"
+                        ),
+                        mime="application/pdf",
+                        width="stretch",
+                        key="baixar_ranking_voluntarios_pdf",
+                        on_click=registrar_download_pdf_voluntarios,
+                        args=(
+                            ator_id,
+                            "ranking",
+                            inicio,
+                            fim,
+                            len(ranking),
+                        ),
+                    )
+
             destaques = [r for r in ranking if r["posicao"] <= 3]
 
             st.caption(
@@ -363,6 +397,40 @@ def tela_relatorios_voluntarios():
                         len(cadastros),
                     ),
                 )
+
+            if tem_permissao(
+                perfil,
+                "exportar_relatorios_voluntarios",
+            ):
+                try:
+                    conteudo_pdf = gerar_pdf_cadastros_voluntarios(
+                        inicio,
+                        fim,
+                        ator_id=ator_id,
+                    )
+
+                except (ValueError, PermissionError) as erro:
+                    st.error(str(erro))
+
+                else:
+                    st.download_button(
+                        "Baixar voluntários cadastrados (PDF)",
+                        data=conteudo_pdf,
+                        file_name=(
+                            f"prestserv_voluntarios_cadastrados_" f"{inicio}_{fim}.pdf"
+                        ),
+                        mime="application/pdf",
+                        width="stretch",
+                        key="baixar_cadastros_voluntarios_pdf",
+                        on_click=registrar_download_pdf_voluntarios,
+                        args=(
+                            ator_id,
+                            "cadastros",
+                            inicio,
+                            fim,
+                            len(cadastros),
+                        ),
+                    )
 
     with aba_historico:
         st.write("#### Histórico individual")
@@ -454,6 +522,46 @@ def tela_relatorios_voluntarios():
                             ),
                         )
 
+                if tem_permissao(
+                    perfil,
+                    "exportar_relatorios_voluntarios",
+                ):
+                    try:
+                        conteudo_pdf = gerar_pdf_historico_voluntario(
+                            voluntario_id,
+                            inicio,
+                            fim,
+                            ator_id=ator_id,
+                        )
+
+                    except (ValueError, PermissionError) as erro:
+                        st.error(str(erro))
+
+                    else:
+                        st.download_button(
+                            "Baixar histórico individual (PDF)",
+                            data=conteudo_pdf,
+                            file_name=(
+                                f"prestserv_historico_voluntario_"
+                                f"{voluntario_id}_{inicio}_{fim}.pdf"
+                            ),
+                            mime="application/pdf",
+                            width="stretch",
+                            key=(
+                                f"baixar_historico_voluntario_pdf_"
+                                f"{voluntario_id}_{inicio}_{fim}"
+                            ),
+                            on_click=registrar_download_pdf_voluntarios,
+                            args=(
+                                ator_id,
+                                "historico",
+                                inicio,
+                                fim,
+                                len(historico),
+                                voluntario_id,
+                            ),
+                        )
+
 
 def gerar_csv_cadastros_voluntarios(cadastros):
     """Gera o CSV da relação de voluntários cadastrados."""
@@ -525,3 +633,67 @@ def gerar_csv_historico_voluntario(historico):
         )
 
     return saida.getvalue().encode("utf-8-sig")
+
+
+def registrar_download_pdf_voluntarios(
+    ator_id, tipo, inicio, fim, total_linhas, voluntario_id=None
+):
+    """Audita downloads PDF dos relatórios de voluntários."""
+
+    if tipo not in {"ranking", "cadastros", "historico"}:
+        raise ValueError("Tipo de relatório inválido.")
+
+    if tipo == "historico":
+        if type(voluntario_id) is not int or voluntario_id <= 0:
+            raise ValueError("Identificador de voluntário inválido.")
+    elif voluntario_id is not None:
+        raise ValueError("Identificador não permitido neste relatório.")
+
+    if type(total_linhas) is not int or total_linhas < 0:
+        raise ValueError("Quantidade de registros inválida.")
+
+    try:
+        data_inicio = date.fromisoformat(inicio)
+        data_fim = date.fromisoformat(fim)
+
+        if (
+            inicio != data_inicio.isoformat()
+            or fim != data_fim.isoformat()
+            or data_inicio > data_fim
+        ):
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise ValueError("Período inválido.") from None
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "exportar_relatorios_voluntarios",
+        )
+
+        operador = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        detalhes = {
+            "tipo": tipo,
+            "inicio": inicio,
+            "fim": fim,
+            "total_linhas": total_linhas,
+        }
+
+        if tipo == "historico":
+            detalhes["voluntario_id"] = voluntario_id
+
+        registrar_log(
+            conexao,
+            acao="exportar_relatorio_voluntarios_pdf",
+            usuario_id=ator_id,
+            usuario_login=operador["login"],
+            entidade="voluntarios",
+            detalhes=detalhes,
+        )
