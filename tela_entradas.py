@@ -21,7 +21,6 @@ from entradas import (
 )
 from permissoes import exigir_permissao_usuario
 
-
 TIPOS = {"doacao": "Doação", "compra": "Compra"}
 
 
@@ -220,13 +219,19 @@ def tela_entradas():
             c1, c2 = st.columns(2)
             with c1:
                 inicio = st.date_input(
-                    "Data inicial", value=hoje.replace(day=1),
-                    max_value=hoje, format="DD/MM/YYYY", key="entradas_data_inicio"
+                    "Data inicial",
+                    value=hoje.replace(day=1),
+                    max_value=hoje,
+                    format="DD/MM/YYYY",
+                    key="entradas_data_inicio",
                 )
             with c2:
                 fim = st.date_input(
-                    "Data final", value=hoje,
-                    max_value=hoje, format="DD/MM/YYYY", key="entradas_data_fim"
+                    "Data final",
+                    value=hoje,
+                    max_value=hoje,
+                    format="DD/MM/YYYY",
+                    key="entradas_data_fim",
                 )
 
         c3, c4 = st.columns(2)
@@ -265,10 +270,47 @@ def tela_entradas():
             st.info("Nenhuma entrada encontrada com os filtros escolhidos.")
             return
 
+        # Exporta exatamente os registros filtrados na consulta.
+        tabela_csv = _tabela(registros)
+
+        # Exporta valores monetários em reais, com vírgula decimal.
+        tabela_csv["Valor total"] = [
+            (
+                f"{r['valor_centavos'] // 100}," f"{r['valor_centavos'] % 100:02d}"
+                if r["valor_centavos"] is not None
+                else ""
+            )
+            for r in registros
+        ]
+
+        conteudo_csv = tabela_csv.to_csv(
+            index=False,
+            sep=";",
+            decimal=",",
+        ).encode("utf-8-sig")
+
+        st.download_button(
+            "Baixar entradas (CSV)",
+            data=conteudo_csv,
+            file_name=f"prestserv_entradas_{hoje.isoformat()}.csv",
+            mime="text/csv",
+            width="stretch",
+        )
+
         st.caption("Selecione uma linha para editar ou excluir o lançamento.")
         assinatura = sha256(
-            repr(tuple((r["id"], r["data"], r["item"], r["quantidade"],
-                        r["valor_centavos"]) for r in registros)).encode("utf-8")
+            repr(
+                tuple(
+                    (
+                        r["id"],
+                        r["data"],
+                        r["item"],
+                        r["quantidade"],
+                        r["valor_centavos"],
+                    )
+                    for r in registros
+                )
+            ).encode("utf-8")
         ).hexdigest()[:16]
 
         evento = st.dataframe(

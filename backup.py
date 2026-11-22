@@ -127,6 +127,31 @@ def validar_banco(conexao):
         if "logs" not in tabelas:
             raise ValueError("Backup V2 sem tabela de auditoria.")
 
+        # A V2.0.0 exige o módulo de entradas.
+        if "entradas" not in tabelas:
+            raise ValueError("Backup V2 sem a tabela de entradas.")
+
+        colunas_entradas = {
+            linha[1] for linha in conexao.execute("PRAGMA table_info(entradas)")
+        }
+
+        esperadas_entradas = {
+            "id",
+            "data",
+            "tipo",
+            "categoria",
+            "item",
+            "quantidade",
+            "unidade",
+            "origem",
+            "valor_centavos",
+            "usuario_id",
+            "criado_em",
+        }
+
+        if not esperadas_entradas.issubset(colunas_entradas):
+            raise ValueError("Estrutura incompatível na tabela entradas.")
+
         colunas_servicos = {
             linha[1]
             for linha in conexao.execute("PRAGMA table_info(presenca_servicos)")
