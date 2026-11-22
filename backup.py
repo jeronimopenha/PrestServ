@@ -37,6 +37,31 @@ COLUNAS_OBRIGATORIAS = {
 }
 
 
+# Estrutura obrigatória do módulo de voluntários na V2.
+COLUNAS_VOLUNTARIOS_V2 = {
+    "voluntarios": {
+        "id",
+        "nome",
+        "telefone",
+        "ativo",
+        "criado_em",
+    },
+    "fotos_voluntarios": {
+        "voluntario_id",
+        "foto",
+        "formato",
+        "atualizada_em",
+    },
+    "presencas_voluntarios": {
+        "id",
+        "voluntario_id",
+        "data",
+        "usuario_id",
+        "criado_em",
+    },
+}
+
+
 def gerar_backup(ator_id):
     """
     Gera um ZIP contendo uma cópia consistente do banco.
@@ -171,6 +196,19 @@ def validar_banco(conexao):
 
         if total == 0:
             raise ValueError("O backup V2 não contém " "um superadministrador ativo.")
+
+        # A V2 com módulo de voluntários precisa
+        # preservar as três tabelas e suas colunas.
+        for tabela, colunas_esperadas in COLUNAS_VOLUNTARIOS_V2.items():
+            if tabela not in tabelas:
+                raise ValueError(f"Backup V2 sem a tabela {tabela}.")
+
+            colunas = {
+                linha[1] for linha in conexao.execute(f"PRAGMA table_info({tabela})")
+            }
+
+            if not colunas_esperadas.issubset(colunas):
+                raise ValueError(f"Estrutura incompatível na " f"tabela {tabela}.")
 
     return versao
 

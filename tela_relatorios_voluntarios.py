@@ -13,12 +13,14 @@ from consultas_voluntarios import (
     estatisticas_voluntarios,
     relatorio_cadastros_voluntarios,
     historico_presencas_voluntario,
+    destaques_voluntarios,
 )
 from pdf_voluntarios import (
     gerar_pdf_ranking_voluntarios,
     gerar_pdf_cadastros_voluntarios,
     gerar_pdf_historico_voluntario,
 )
+from certificados_voluntarios import gerar_certificados_voluntarios
 
 
 def _selecionar_periodo():
@@ -277,6 +279,7 @@ def tela_relatorios_voluntarios():
         if not ranking:
             st.info("Nenhuma participação registrada " "no período selecionado.")
         else:
+            destaques = [r for r in ranking if r["posicao"] <= 3]
             tabela = [
                 {
                     "Colocação": f"{r['posicao']}º",
@@ -339,6 +342,49 @@ def tela_relatorios_voluntarios():
                             inicio,
                             fim,
                             len(ranking),
+                        ),
+                    )
+
+            if tem_permissao(
+                perfil,
+                "gerar_certificados_voluntarios",
+            ):
+                try:
+                    conteudo_certificados = gerar_certificados_voluntarios(
+                        inicio,
+                        fim,
+                        ator_id=ator_id,
+                    )
+
+                except (ValueError, PermissionError) as erro:
+                    st.error(str(erro))
+
+                else:
+                    st.divider()
+
+                    st.write("#### Certificados de reconhecimento")
+
+                    st.caption(
+                        f"Serão gerados {len(destaques)} "
+                        "certificado(s), um por página, "
+                        "respeitando os empates nas três "
+                        "primeiras colocações."
+                    )
+
+                    st.download_button(
+                        "Baixar certificados (PDF)",
+                        data=conteudo_certificados,
+                        file_name=(
+                            f"prestserv_certificados_voluntarios_" f"{inicio}_{fim}.pdf"
+                        ),
+                        mime="application/pdf",
+                        width="stretch",
+                        key=(f"baixar_certificados_voluntarios_" f"{inicio}_{fim}"),
+                        on_click=(registrar_download_certificados_voluntarios),
+                        args=(
+                            ator_id,
+                            inicio,
+                            fim,
                         ),
                     )
 
@@ -696,4 +742,64 @@ def registrar_download_pdf_voluntarios(
             usuario_login=operador["login"],
             entidade="voluntarios",
             detalhes=detalhes,
+        )
+
+
+def registrar_download_certificados_voluntarios(ator_id, inicio, fim):
+    """Audita a solicitação de download dos certificados."""
+
+    # A permissão de emissão é específica.
+    with conectar() as conexao:
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerar_certificados_voluntarios",
+        )
+
+    # Consulta novamente os classificados para
+    # registrar quem foi contemplado.
+    destaques = destaques_voluntarios(
+        inicio,
+        fim,
+        ator_id=ator_id,
+    )
+
+    if not destaques:
+        raise ValueError("Não há voluntários classificados " "no período selecionado.")
+
+    certificados = [
+        {
+            "voluntario_id": registro["voluntario_id"],
+            "posicao": registro["posicao"],
+            "presencas": registro["presencas"],
+        }
+        for registro in destaques
+    ]
+
+    with conectar() as conexao:
+        conexao.execute("BEGIN IMMEDIATE")
+
+        exigir_permissao_usuario(
+            conexao,
+            ator_id,
+            "gerar_certificados_voluntarios",
+        )
+
+        operador = conexao.execute(
+            "SELECT login FROM usuarios WHERE id = ?",
+            (ator_id,),
+        ).fetchone()
+
+        registrar_log(
+            conexao,
+            acao="exportar_certificados_voluntarios_pdf",
+            usuario_id=ator_id,
+            usuario_login=operador["login"],
+            entidade="voluntarios",
+            detalhes={
+                "inicio": inicio,
+                "fim": fim,
+                "total_certificados": len(certificados),
+                "certificados": certificados,
+            },
         )
