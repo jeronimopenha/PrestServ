@@ -19,6 +19,7 @@ from tela_backups import tela_backups
 from estrutura_v110 import consultar_vinculos
 from tela_logs import tela_logs
 from tela_entradas import tela_entradas
+from tela_cadastros_voluntarios import tela_cadastros_voluntarios
 from permissoes import PERFIS, tem_permissao
 from common import BASIC_TITTLE, VERSAO, ANO
 
@@ -371,6 +372,7 @@ def main():
             "Cadastros",
             "Entradas",
             "Relatórios",
+            "Cadastro de voluntários",
         ]
 
         if tem_permissao(perfil, "consultar_logs"):
@@ -394,6 +396,9 @@ def main():
 
         elif pagina == "Cadastros":
             tela_cadastros()
+
+        elif pagina == "Cadastro de voluntários":
+            tela_cadastros_voluntarios()
 
         elif pagina == "Entradas":
             tela_entradas()
@@ -425,7 +430,7 @@ def main():
     elif perfil == "secretaria":
         pagina = st.sidebar.radio(
             "Navegação",
-            ["Cadastros", "Entradas"],
+            ["Cadastros", "Entradas", "Cadastro de voluntários"],
         )
 
         if pagina == "Cadastros":
@@ -433,6 +438,8 @@ def main():
 
         elif pagina == "Entradas":
             tela_entradas()
+        elif pagina == "Cadastro de voluntários":
+            tela_cadastros_voluntarios()
 
     else:
         st.error("Perfil de usuário inválido.")

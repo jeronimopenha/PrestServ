@@ -37,6 +37,21 @@ PERMISSOES = {
     # Doações e compras
     "gerenciar_entradas": {"superadmin", "admin", "secretaria"},
     "consultar_fotos": {"superadmin", "admin", "secretaria", "porteiro"},
+    # Voluntários — cadastros
+    "consultar_voluntarios": {"superadmin", "admin", "secretaria", "porteiro"},
+    "consultar_contato_voluntarios": {"superadmin", "admin", "secretaria"},
+    "consultar_fotos_voluntarios": {"superadmin", "admin", "secretaria", "porteiro"},
+    "cadastrar_voluntarios": {"superadmin", "admin", "secretaria"},
+    "editar_voluntarios": {"superadmin", "admin", "secretaria"},
+    "excluir_voluntarios": {"superadmin", "admin"},
+    # Voluntários — presenças
+    "registrar_presenca_voluntarios": {"superadmin", "admin", "porteiro"},
+    "alterar_data_presenca_voluntarios": {"superadmin", "admin"},
+    # Voluntários — relatórios
+    "relatorios_voluntarios": {"superadmin", "admin"},
+    "estatisticas_voluntarios": {"superadmin", "admin", "consulta"},
+    "exportar_relatorios_voluntarios": {"superadmin", "admin"},
+    "gerar_certificados_voluntarios": {"superadmin", "admin"},
 }
 
 

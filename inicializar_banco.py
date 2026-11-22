@@ -4,6 +4,7 @@ from database import DB_PATH
 from estrutura_v110 import criar_estrutura_logs
 from estrutura_v200 import migrar_usuarios_v200
 from estrutura_entradas import criar_estrutura_entradas
+from estrutura_voluntarios import criar_estrutura_voluntarios
 
 
 def inicializar_banco():
@@ -109,9 +110,6 @@ def inicializar_banco():
             INSERT OR IGNORE INTO servicos(nome)
             VALUES ('Jantar'), ('Banho'), ('Roupas');
         """)
-        criar_estrutura_logs(conexao)
-        if instalacao_nova:
-            migrar_usuarios_v200(conexao)
 
         criar_estrutura_logs(conexao)
 
@@ -120,6 +118,14 @@ def inicializar_banco():
 
         # Garante a estrutura de entradas de doações e compras.
         criar_estrutura_entradas(conexao)
+
+        criar_estrutura_logs(conexao)
+
+        if instalacao_nova:
+            migrar_usuarios_v200(conexao)
+
+        criar_estrutura_entradas(conexao)
+        criar_estrutura_voluntarios(conexao)
 
 
 if __name__ == "__main__":
