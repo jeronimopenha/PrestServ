@@ -207,17 +207,13 @@ def gerar_pdf(titulo, inicio, fim, indicadores, tabelas, ator_id):
     return buffer.getvalue()
 
 
-
 def gerar_pdf_entradas(
-    registros, ator_id,
-    inicio=None, fim=None, tipo=None, categoria=None
+    registros, ator_id, inicio=None, fim=None, tipo=None, categoria=None
 ):
     """Gera o relatório PDF das entradas filtradas."""
 
     with conectar() as conexao:
-        exigir_permissao_usuario(
-            conexao, ator_id, "gerenciar_entradas"
-        )
+        exigir_permissao_usuario(conexao, ator_id, "gerenciar_entradas")
 
     registros = list(registros)
     buffer = BytesIO()
@@ -233,36 +229,40 @@ def gerar_pdf_entradas(
 
     estilos = getSampleStyleSheet()
 
-    estilos.add(ParagraphStyle(
-        name="TituloEntradas",
-        parent=estilos["Heading1"],
-        alignment=TA_CENTER,
-        textColor=colors.HexColor("#444444"),
-        spaceAfter=10,
-    ))
+    estilos.add(
+        ParagraphStyle(
+            name="TituloEntradas",
+            parent=estilos["Heading1"],
+            alignment=TA_CENTER,
+            textColor=colors.HexColor("#444444"),
+            spaceAfter=10,
+        )
+    )
 
-    estilos.add(ParagraphStyle(
-        name="CelulaEntradas",
-        parent=estilos["Normal"],
-        fontSize=7,
-        leading=9,
-    ))
+    estilos.add(
+        ParagraphStyle(
+            name="CelulaEntradas",
+            parent=estilos["Normal"],
+            fontSize=7,
+            leading=9,
+        )
+    )
 
-    estilos.add(ParagraphStyle(
-        name="CabecalhoEntradas",
-        parent=estilos["CelulaEntradas"],
-        fontName="Helvetica-Bold",
-        textColor=colors.white,
-    ))
+    estilos.add(
+        ParagraphStyle(
+            name="CabecalhoEntradas",
+            parent=estilos["CelulaEntradas"],
+            fontName="Helvetica-Bold",
+            textColor=colors.white,
+        )
+    )
 
     def data_br(valor):
         if valor is None:
             return "Todas"
         if hasattr(valor, "strftime"):
             return valor.strftime("%d/%m/%Y")
-        return datetime.strptime(
-            valor, "%Y-%m-%d"
-        ).strftime("%d/%m/%Y")
+        return datetime.strptime(valor, "%Y-%m-%d").strftime("%d/%m/%Y")
 
     def dinheiro(centavos):
         if centavos is None:
@@ -293,23 +293,17 @@ def gerar_pdf_entradas(
         f"Categoria: {categoria or 'Todas'}"
     )
 
-    total_doacoes = sum(
-        r["tipo"] == "doacao" for r in registros
-    )
-    total_compras = sum(
-        r["tipo"] == "compra" for r in registros
-    )
+    total_doacoes = sum(r["tipo"] == "doacao" for r in registros)
+    total_compras = sum(r["tipo"] == "compra" for r in registros)
 
     valores_compras = [
         r["valor_centavos"]
         for r in registros
-        if r["tipo"] == "compra"
-        and r["valor_centavos"] is not None
+        if r["tipo"] == "compra" and r["valor_centavos"] is not None
     ]
 
     total_informado = (
-        dinheiro(sum(valores_compras))
-        if valores_compras else "Não informado"
+        dinheiro(sum(valores_compras)) if valores_compras else "Não informado"
     )
 
     resumo = (
@@ -335,15 +329,19 @@ def gerar_pdf_entradas(
     ]
 
     cabecalho = [
-        "ID", "Data", "Tipo", "Categoria", "Item",
-        "Qtd.", "Unid.", "Origem",
-        "Valor total", "Registrado por",
+        "ID",
+        "Data",
+        "Tipo",
+        "Categoria",
+        "Item",
+        "Qtd.",
+        "Unid.",
+        "Origem",
+        "Valor total",
+        "Registrado por",
     ]
 
-    dados = [[
-        celula(c, estilos["CabecalhoEntradas"])
-        for c in cabecalho
-    ]]
+    dados = [[celula(c, estilos["CabecalhoEntradas"]) for c in cabecalho]]
 
     for r in registros:
         valores = [
@@ -359,10 +357,7 @@ def gerar_pdf_entradas(
             r["registrado_por"],
         ]
 
-        dados.append([
-            celula(v, estilos["CelulaEntradas"])
-            for v in valores
-        ])
+        dados.append([celula(v, estilos["CelulaEntradas"]) for v in valores])
 
     pesos = [35, 60, 49, 78, 118, 44, 43, 100, 79, 102]
     fator = (landscape(A4)[0] - 56) / sum(pesos)
@@ -374,23 +369,34 @@ def gerar_pdf_entradas(
         hAlign="LEFT",
     )
 
-    tabela.setStyle(TableStyle([
-        (
-            "BACKGROUND", (0, 0), (-1, 0),
-            colors.HexColor("#444444"),
-        ),
-        (
-            "ROWBACKGROUNDS", (0, 1), (-1, -1),
-            [colors.white, colors.HexColor("#F5F5F5")],
-        ),
-        (
-            "GRID", (0, 0), (-1, -1),
-            0.25, colors.lightgrey,
-        ),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
+    tabela.setStyle(
+        TableStyle(
+            [
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, 0),
+                    colors.HexColor("#444444"),
+                ),
+                (
+                    "ROWBACKGROUNDS",
+                    (0, 1),
+                    (-1, -1),
+                    [colors.white, colors.HexColor("#F5F5F5")],
+                ),
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.25,
+                    colors.lightgrey,
+                ),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
 
     conteudo.append(tabela)
 
@@ -401,23 +407,23 @@ def gerar_pdf_entradas(
 
         largura = landscape(A4)[0]
 
-        agora = datetime.now(
-            ZoneInfo("America/Sao_Paulo")
-        ).strftime("%d/%m/%Y %H:%M")
+        agora = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y %H:%M")
 
         canvas.drawString(
-            28, 20,
-            f"PrestServ {VERSAO} | "
-            f"Desenvolvido por Jeronimo Costa Penha - {ANO}",
+            28,
+            20,
+            f"PrestServ {VERSAO} | " f"Desenvolvido por Jeronimo Costa Penha - {ANO}",
         )
 
         canvas.drawCentredString(
-            largura / 2, 20,
+            largura / 2,
+            20,
             f"Emitido em {agora}",
         )
 
         canvas.drawRightString(
-            largura - 28, 20,
+            largura - 28,
+            20,
             f"Página {doc.page}",
         )
 
