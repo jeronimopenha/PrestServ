@@ -22,6 +22,7 @@ from telas.tela_entradas import tela_entradas
 from telas.tela_cadastros_voluntarios import tela_cadastros_voluntarios
 from telas.tela_presencas_voluntarios import tela_presencas_voluntarios
 from telas.tela_relatorios_voluntarios import tela_relatorios_voluntarios
+from telas.tela_documentacao import tela_documentacao
 from model.permissoes import PERFIS, tem_permissao
 from common.common import BASIC_TITTLE, VERSAO, ANO
 
@@ -445,6 +446,9 @@ def main():
         st.error("Perfil de usuário inválido.")
         return
 
+    if perfil != "porteiro":
+        menu["Ajuda"] = ["Documentação"]
+
     if perfil == "porteiro":
         # Navegação direta, sem seleção de área.
         pagina = st.sidebar.radio(
@@ -452,6 +456,7 @@ def main():
             [
                 "Presenças",
                 "Presenças de voluntários",
+                "Documentação",
             ],
             key="navegacao_porteiro",
         )
@@ -483,6 +488,7 @@ def main():
         "Logs do sistema": tela_logs,
         "Backup e restauração": tela_backups,
         "Administração": painel_admin,
+        "Documentação": tela_documentacao,
     }
 
     telas[pagina]()
