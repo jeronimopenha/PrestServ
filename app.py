@@ -336,6 +336,76 @@ def painel_porteiro():
     tela_presencas()
 
 
+def montar_menu(perfil):
+    """Organiza as páginas disponíveis para cada perfil."""
+
+    if perfil in ("superadmin", "admin"):
+        menu = {
+            "Atendimentos": [
+                "Presenças",
+                "Cadastros",
+                "Entradas",
+                "Relatórios",
+            ],
+            "Voluntários": [
+                "Presenças de voluntários",
+                "Cadastro de voluntários",
+                "Relatórios de voluntários",
+            ],
+        }
+
+        administracao = []
+
+        if tem_permissao(perfil, "consultar_logs"):
+            administracao.append("Logs do sistema")
+
+        if tem_permissao(perfil, "gerar_backup") and tem_permissao(
+            perfil, "restaurar_backup"
+        ):
+            administracao.append("Backup e restauração")
+
+        if tem_permissao(perfil, "gerenciar_usuarios"):
+            administracao.append("Administração")
+
+        if administracao:
+            menu["Administração"] = administracao
+
+        return menu
+
+    if perfil == "porteiro":
+        return {
+            "Atendimentos": [
+                "Presenças",
+            ],
+            "Voluntários": [
+                "Presenças de voluntários",
+            ],
+        }
+
+    if perfil == "consulta":
+        return {
+            "Atendimentos": [
+                "Relatórios",
+            ],
+            "Voluntários": [
+                "Relatórios de voluntários",
+            ],
+        }
+
+    if perfil == "secretaria":
+        return {
+            "Atendimentos": [
+                "Cadastros",
+                "Entradas",
+            ],
+            "Voluntários": [
+                "Cadastro de voluntários",
+            ],
+        }
+
+    return {}
+
+
 def main():
     inicializar_banco()
     usuario = usuario_atual()
@@ -368,109 +438,40 @@ def main():
 
     perfil = usuario["perfil"]
 
-    if perfil in ("superadmin", "admin"):
-        paginas = [
-            "Presenças de voluntários",
-            "Presenças",
-            "Cadastros",
-            "Entradas",
-            "Relatórios",
-            "Relatórios de voluntários",
-            "Cadastro de voluntários",
-        ]
+    # Organização das áreas e páginas.
+    menu = montar_menu(perfil)
 
-        if tem_permissao(perfil, "consultar_logs"):
-            paginas.append("Logs do sistema")
-
-        if tem_permissao(perfil, "gerar_backup") and tem_permissao(
-            perfil, "restaurar_backup"
-        ):
-            paginas.append("Backup e restauração")
-
-        if tem_permissao(perfil, "gerenciar_usuarios"):
-            paginas.append("Administração")
-
-        pagina = st.sidebar.radio(
-            "Navegação",
-            paginas,
-        )
-
-        if pagina == "Presenças":
-            tela_presencas()
-
-        elif pagina == "Presenças de voluntários":
-            tela_presencas_voluntarios()
-
-        elif pagina == "Cadastros":
-            tela_cadastros()
-
-        elif pagina == "Cadastro de voluntários":
-            tela_cadastros_voluntarios()
-
-        elif pagina == "Entradas":
-            tela_entradas()
-
-        elif pagina == "Relatórios":
-            tela_relatorios()
-
-        elif pagina == "Relatórios de voluntários":
-            tela_relatorios_voluntarios()
-
-        elif pagina == "Logs do sistema":
-            tela_logs()
-
-        elif pagina == "Backup e restauração":
-            tela_backups()
-
-        elif pagina == "Administração":
-            painel_admin()
-
-    elif perfil == "porteiro":
-        pagina = st.sidebar.radio(
-            "Navegação",
-            [
-                "Presenças",
-                "Presenças de voluntários",
-            ],
-        )
-
-        if pagina == "Presenças":
-            tela_presencas()
-
-        elif pagina == "Presenças de voluntários":
-            tela_presencas_voluntarios()
-
-    elif perfil == "consulta":
-        pagina = st.sidebar.radio(
-            "Navegação",
-            [
-                "Relatórios",
-                "Relatórios de voluntários",
-            ],
-        )
-
-        if pagina == "Relatórios":
-            tela_relatorios()
-
-        elif pagina == "Relatórios de voluntários":
-            tela_relatorios_voluntarios()
-
-    elif perfil == "secretaria":
-        pagina = st.sidebar.radio(
-            "Navegação",
-            ["Cadastros", "Entradas", "Cadastro de voluntários"],
-        )
-
-        if pagina == "Cadastros":
-            tela_cadastros()
-
-        elif pagina == "Entradas":
-            tela_entradas()
-        elif pagina == "Cadastro de voluntários":
-            tela_cadastros_voluntarios()
-
-    else:
+    if not menu:
         st.error("Perfil de usuário inválido.")
+        return
+
+    area = st.sidebar.selectbox(
+        "Área",
+        options=list(menu),
+        key=f"navegacao_area_{perfil}",
+    )
+
+    pagina = st.sidebar.radio(
+        "Página",
+        options=menu[area],
+        key=f"navegacao_pagina_{perfil}_{area}",
+    )
+
+    # Associação entre páginas e suas funções.
+    telas = {
+        "Presenças": tela_presencas,
+        "Cadastros": tela_cadastros,
+        "Entradas": tela_entradas,
+        "Relatórios": tela_relatorios,
+        "Presenças de voluntários": tela_presencas_voluntarios,
+        "Cadastro de voluntários": tela_cadastros_voluntarios,
+        "Relatórios de voluntários": tela_relatorios_voluntarios,
+        "Logs do sistema": tela_logs,
+        "Backup e restauração": tela_backups,
+        "Administração": painel_admin,
+    }
+
+    telas[pagina]()
 
     with st.sidebar:
         with st.container(key="creditos_prestserv"):
