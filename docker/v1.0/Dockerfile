@@ -1,30 +1,19 @@
+FROM python:3.12-slim
 
-services:
-  prestserv:
-    image: prestserv:1.0
-    container_name: prestserv
-    restart: unless-stopped
-    init: true
+WORKDIR /app
 
-    working_dir: /app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV TZ=America/Sao_Paulo
 
-    volumes:
-      - /server/containers/PrestServ/PrestServ:/app
+COPY requirements.txt /tmp/requirements.txt
 
-    environment:
-      TZ: America/Sao_Paulo
-      PYTHONUNBUFFERED: "1"
-      PYTHONDONTWRITEBYTECODE: "1"
-    
-      STREAMLIT_BROWSER_SERVER_ADDRESS: "pdf.ksenos.space"
-      STREAMLIT_BROWSER_SERVER_PORT: "443"
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-    expose:
-      - "8501"
+EXPOSE 8501
 
-    networks:
-      - homelab_proxy
-
-networks:
-  homelab_proxy:
-    external: true
+CMD ["python", "-m", "streamlit", "run", "app.py", \
+     "--server.address=0.0.0.0", \
+     "--server.port=8501", \
+     "--server.headless=true", \
+     "--server.fileWatcherType=none"]
