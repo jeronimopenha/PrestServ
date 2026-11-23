@@ -2,8 +2,13 @@ from datetime import date, timedelta
 
 import streamlit as st
 
-from database import data_atual, listar_pessoas_admin, conectar, registrar_log
-from consultas_relatorios import (
+from conn.database import (
+    data_atual,
+    listar_pessoas_admin,
+    conectar,
+    registrar_log,
+)
+from model.consultas_relatorios import (
     indicadores,
     presencas_detalhadas,
     servicos_por_tipo,
@@ -13,8 +18,8 @@ from consultas_relatorios import (
     pessoas_ausentes,
     qualidade_cadastros,
 )
-from pdf_relatorios import gerar_pdf
-from permissoes import exigir_permissao_usuario
+from model.pdf_relatorios import gerar_pdf
+from model.permissoes import exigir_permissao_usuario
 
 COLUNAS_RELATORIO = {
     "id": "ID",

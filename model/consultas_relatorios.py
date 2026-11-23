@@ -1,8 +1,7 @@
 import pandas as pd
-from database import conectar, _tem_coluna_quantidade_servico
+from conn.database import conectar, _tem_coluna_quantidade_servico
 from datetime import date
-from permissoes import exigir_permissao_usuario
-
+from model.permissoes import exigir_permissao_usuario
 
 
 def presencas_detalhadas(inicio, fim, pessoa_id=None, ator_id=None):
@@ -30,30 +29,21 @@ def presencas_detalhadas(inicio, fim, pessoa_id=None, ator_id=None):
             data_inicio = date.fromisoformat(inicio)
             data_fim = date.fromisoformat(fim)
 
-            if (
-                inicio != data_inicio.isoformat()
-                or fim != data_fim.isoformat()
-            ):
+            if inicio != data_inicio.isoformat() or fim != data_fim.isoformat():
                 raise ValueError()
 
         except ValueError:
-            raise ValueError(
-                "Período do relatório inválido."
-            ) from None
+            raise ValueError("Período do relatório inválido.") from None
 
         if data_inicio > data_fim:
-            raise ValueError(
-                "A data inicial não pode superar a final."
-            )
+            raise ValueError("A data inicial não pode superar a final.")
 
         parametros = [inicio, fim]
         filtro = ""
 
         if pessoa_id is not None:
             if type(pessoa_id) is not int or pessoa_id <= 0:
-                raise ValueError(
-                    "Identificador da pessoa inválido."
-                )
+                raise ValueError("Identificador da pessoa inválido.")
 
             filtro = "AND p.pessoa_id = ?"
             parametros.append(pessoa_id)
@@ -61,9 +51,7 @@ def presencas_detalhadas(inicio, fim, pessoa_id=None, ator_id=None):
         # V1/V2: cada vínculo representa uma unidade.
         # V3: utiliza a quantidade efetiva.
         expressao_unidades = (
-            "ps.quantidade"
-            if _tem_coluna_quantidade_servico(conexao)
-            else "1"
+            "ps.quantidade" if _tem_coluna_quantidade_servico(conexao) else "1"
         )
 
         resultado = pd.read_sql_query(
@@ -124,7 +112,6 @@ def presencas_detalhadas(inicio, fim, pessoa_id=None, ator_id=None):
     return resultado
 
 
-
 def servicos_por_tipo(inicio, fim, pessoa_id=None, ator_id=None):
     """
     Retorna os serviços registrados e as unidades distribuídas.
@@ -151,9 +138,7 @@ def servicos_por_tipo(inicio, fim, pessoa_id=None, ator_id=None):
             )
 
             if type(pessoa_id) is not int or pessoa_id <= 0:
-                raise ValueError(
-                    "Identificador da pessoa inválido."
-                )
+                raise ValueError("Identificador da pessoa inválido.")
 
         # Valida o período.
         try:
@@ -163,21 +148,14 @@ def servicos_por_tipo(inicio, fim, pessoa_id=None, ator_id=None):
             data_inicio = date.fromisoformat(inicio)
             data_fim = date.fromisoformat(fim)
 
-            if (
-                inicio != data_inicio.isoformat()
-                or fim != data_fim.isoformat()
-            ):
+            if inicio != data_inicio.isoformat() or fim != data_fim.isoformat():
                 raise ValueError()
 
         except ValueError:
-            raise ValueError(
-                "Período do relatório inválido."
-            ) from None
+            raise ValueError("Período do relatório inválido.") from None
 
         if data_inicio > data_fim:
-            raise ValueError(
-                "A data inicial não pode superar a final."
-            )
+            raise ValueError("A data inicial não pode superar a final.")
 
         parametros = [inicio, fim]
         filtro = ""
@@ -189,9 +167,7 @@ def servicos_por_tipo(inicio, fim, pessoa_id=None, ator_id=None):
         # V1/V2: cada serviço registrado vale uma unidade.
         # V3: utiliza a quantidade efetivamente distribuída.
         expressao_unidades = (
-            "ps.quantidade"
-            if _tem_coluna_quantidade_servico(conexao)
-            else "1"
+            "ps.quantidade" if _tem_coluna_quantidade_servico(conexao) else "1"
         )
 
         resultado = pd.read_sql_query(
@@ -228,7 +204,6 @@ def servicos_por_tipo(inicio, fim, pessoa_id=None, ator_id=None):
     return resultado
 
 
-
 def frequencia_pessoas(inicio, fim, pessoa_id=None, ator_id=None):
     """
     Retorna a frequência individual das pessoas atendidas.
@@ -254,38 +229,27 @@ def frequencia_pessoas(inicio, fim, pessoa_id=None, ator_id=None):
             data_inicio = date.fromisoformat(inicio)
             data_fim = date.fromisoformat(fim)
 
-            if (
-                inicio != data_inicio.isoformat()
-                or fim != data_fim.isoformat()
-            ):
+            if inicio != data_inicio.isoformat() or fim != data_fim.isoformat():
                 raise ValueError()
 
         except ValueError:
-            raise ValueError(
-                "Período do relatório inválido."
-            ) from None
+            raise ValueError("Período do relatório inválido.") from None
 
         if data_inicio > data_fim:
-            raise ValueError(
-                "A data inicial não pode superar a final."
-            )
+            raise ValueError("A data inicial não pode superar a final.")
 
         parametros = [inicio, fim]
         filtro = ""
 
         if pessoa_id is not None:
             if type(pessoa_id) is not int or pessoa_id <= 0:
-                raise ValueError(
-                    "Identificador da pessoa inválido."
-                )
+                raise ValueError("Identificador da pessoa inválido.")
 
             filtro = "AND pe.id = ?"
             parametros.append(pessoa_id)
 
         expressao_unidades = (
-            "ps.quantidade"
-            if _tem_coluna_quantidade_servico(conexao)
-            else "1"
+            "ps.quantidade" if _tem_coluna_quantidade_servico(conexao) else "1"
         )
 
         resultado = pd.read_sql_query(

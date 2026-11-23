@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
-from database import listar_logs, listar_acoes_logs, excluir_logs
+from conn.database import listar_logs, listar_acoes_logs, excluir_logs
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 

@@ -3,7 +3,7 @@ import streamlit as st
 
 from datetime import date, datetime
 
-from database import (
+from conn.database import (
     data_atual,
     listar_pessoas,
     buscar_pessoa,

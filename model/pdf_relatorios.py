@@ -16,9 +16,9 @@ from reportlab.platypus import (
     KeepTogether,
 )
 
-from database import conectar
-from permissoes import exigir_permissao_usuario
-from common import BASIC_TITTLE, ANO, VERSAO
+from conn.database import conectar
+from model.permissoes import exigir_permissao_usuario
+from common.common import BASIC_TITTLE, ANO, VERSAO
 
 
 def gerar_pdf(titulo, inicio, fim, indicadores, tabelas, ator_id):

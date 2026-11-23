@@ -447,7 +447,7 @@ Os registros de auditoria podem conter informações administrativas e identific
 
 #### 9.1. Gerar backup
 
-O módulo `backup.py` gera em memória uma cópia consistente do SQLite com `sqlite3.Connection.backup()`, compactada em ZIP. O nome do arquivo interno é **`prestserv.db`**. O backup inclui pessoas, usuários, fotografias, atendimentos e logs existentes no momento da geração.
+O módulo `backup.py` gera em memória uma cópia consistente do SQLite com `sqlite3.conn.backup()`, compactada em ZIP. O nome do arquivo interno é **`prestserv.db`**. O backup inclui pessoas, usuários, fotografias, atendimentos e logs existentes no momento da geração.
 
 A interface administrativa oferece **Preparar backup** e **Baixar backup ZIP**. Não há necessidade de uma pasta persistente de backups no servidor para este procedimento; a política de armazenamento externo é responsabilidade da instituição.
 

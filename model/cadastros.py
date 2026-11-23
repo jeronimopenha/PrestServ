@@ -1,6 +1,6 @@
 import streamlit as st
 
-from database import (
+from conn.database import (
     conectar,
     cadastrar_pessoa,
     atualizar_pessoa,
@@ -13,9 +13,9 @@ from database import (
     excluir_pessoa,
 )
 
-from estrutura_v110 import consultar_vinculos
-from fotos import converter_para_jpeg
-from permissoes import exigir_permissao_usuario, tem_permissao
+from bd_schemes.estrutura_v110 import consultar_vinculos
+from model.fotos import converter_para_jpeg
+from model.permissoes import exigir_permissao_usuario, tem_permissao
 
 
 def campo_texto(valor):

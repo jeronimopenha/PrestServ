@@ -212,7 +212,7 @@ def promover_primeiro_superadmin(conexao, login):
     Operação destinada à migração inicial para a V2.0.
     Não deve ser disponibilizada como ação da interface.
     """
-    from database import registrar_log
+    from conn.database import registrar_log
 
     if not isinstance(login, str) or not login.strip():
         raise ValueError("Informe o login do administrador.")

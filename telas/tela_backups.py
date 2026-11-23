@@ -3,8 +3,8 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 
-from backup import gerar_backup, restaurar_backup
-from database import conectar, registrar_log
+from common.backup import gerar_backup, restaurar_backup
+from conn.database import conectar, registrar_log
 
 
 def tela_backups():

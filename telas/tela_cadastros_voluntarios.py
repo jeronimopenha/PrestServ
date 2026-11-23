@@ -2,9 +2,9 @@
 
 import streamlit as st
 
-from database import conectar
-from permissoes import exigir_permissao_usuario, tem_permissao
-from voluntarios import (
+from conn.database import conectar
+from model.permissoes import exigir_permissao_usuario, tem_permissao
+from model.voluntarios import (
     cadastrar_voluntario,
     listar_voluntarios,
     buscar_voluntario,

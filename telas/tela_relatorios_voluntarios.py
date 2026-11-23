@@ -6,21 +6,21 @@ from datetime import date
 
 import streamlit as st
 
-from database import conectar, data_atual, registrar_log
-from permissoes import exigir_permissao_usuario, tem_permissao
-from consultas_voluntarios import (
+from conn.database import conectar, data_atual, registrar_log
+from model.permissoes import exigir_permissao_usuario, tem_permissao
+from model.consultas_voluntarios import (
     ranking_voluntarios,
     estatisticas_voluntarios,
     relatorio_cadastros_voluntarios,
     historico_presencas_voluntario,
     destaques_voluntarios,
 )
-from pdf_voluntarios import (
+from model.pdf_voluntarios import (
     gerar_pdf_ranking_voluntarios,
     gerar_pdf_cadastros_voluntarios,
     gerar_pdf_historico_voluntario,
 )
-from certificados_voluntarios import gerar_certificados_voluntarios
+from model.certificados_voluntarios import gerar_certificados_voluntarios
 
 
 def _selecionar_periodo():

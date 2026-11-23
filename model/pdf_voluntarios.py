@@ -17,10 +17,10 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from common import BASIC_TITTLE, VERSAO, ANO
-from database import conectar
-from permissoes import exigir_permissao_usuario
-from consultas_voluntarios import (
+from common.common import BASIC_TITTLE, VERSAO, ANO
+from conn.database import conectar
+from model.permissoes import exigir_permissao_usuario
+from model.consultas_voluntarios import (
     ranking_voluntarios,
     relatorio_cadastros_voluntarios,
     historico_presencas_voluntario,

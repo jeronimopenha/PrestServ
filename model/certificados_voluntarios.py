@@ -12,10 +12,10 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph
 
-from common import BASIC_TITTLE, VERSAO
-from database import conectar
-from permissoes import exigir_permissao_usuario
-from consultas_voluntarios import destaques_voluntarios
+from common.common import BASIC_TITTLE, VERSAO
+from conn.database import conectar
+from model.permissoes import exigir_permissao_usuario
+from model.consultas_voluntarios import destaques_voluntarios
 
 
 def gerar_certificados_voluntarios(inicio, fim, *, ator_id):

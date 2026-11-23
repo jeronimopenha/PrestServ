@@ -1,10 +1,10 @@
 import sqlite3
 
-from database import DB_PATH
-from estrutura_v110 import criar_estrutura_logs
-from estrutura_v200 import migrar_usuarios_v200
-from estrutura_entradas import criar_estrutura_entradas
-from estrutura_voluntarios import criar_estrutura_voluntarios
+from conn.database import DB_PATH
+from bd_schemes.estrutura_v110 import criar_estrutura_logs
+from bd_schemes.estrutura_v200 import migrar_usuarios_v200
+from model.estrutura_entradas import criar_estrutura_entradas
+from bd_schemes.estrutura_voluntarios import criar_estrutura_voluntarios
 
 
 def inicializar_banco():

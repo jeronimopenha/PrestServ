@@ -1,7 +1,7 @@
 import sqlite3
 import streamlit as st
 
-from auth import (
+from conn.auth import (
     autenticar,
     criar_usuario,
     listar_usuarios,
@@ -10,20 +10,20 @@ from auth import (
     redefinir_senha,
     excluir_usuario,
 )
-from database import conectar, registrar_log
-from presencas import tela_presencas
-from cadastros import tela_cadastros
-from relatorios import tela_relatorios
-from inicializar_banco import inicializar_banco
-from tela_backups import tela_backups
-from estrutura_v110 import consultar_vinculos
-from tela_logs import tela_logs
-from tela_entradas import tela_entradas
-from tela_cadastros_voluntarios import tela_cadastros_voluntarios
-from tela_presencas_voluntarios import tela_presencas_voluntarios
-from tela_relatorios_voluntarios import tela_relatorios_voluntarios
-from permissoes import PERFIS, tem_permissao
-from common import BASIC_TITTLE, VERSAO, ANO
+from conn.database import conectar, registrar_log
+from model.presencas import tela_presencas
+from model.cadastros import tela_cadastros
+from model.relatorios import tela_relatorios
+from bd_schemes.inicializar_banco import inicializar_banco
+from telas.tela_backups import tela_backups
+from bd_schemes.estrutura_v110 import consultar_vinculos
+from telas.tela_logs import tela_logs
+from telas.tela_entradas import tela_entradas
+from telas.tela_cadastros_voluntarios import tela_cadastros_voluntarios
+from telas.tela_presencas_voluntarios import tela_presencas_voluntarios
+from telas.tela_relatorios_voluntarios import tela_relatorios_voluntarios
+from model.permissoes import PERFIS, tem_permissao
+from common.common import BASIC_TITTLE, VERSAO, ANO
 
 st.set_page_config(page_title=BASIC_TITTLE, page_icon="🏠", layout="centered")
 

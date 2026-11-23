@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
-from permissoes import exigir_permissao_usuario, tem_permissao
+from model.permissoes import exigir_permissao_usuario, tem_permissao
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -1076,7 +1076,7 @@ def alterar_status_pessoa(
 def excluir_pessoa(pessoa_id, ator_id):
     """Exclui uma pessoa somente se não possuir relacionamentos."""
 
-    from estrutura_v110 import consultar_vinculos
+    from bd_schemes.estrutura_v110 import consultar_vinculos
 
     if type(pessoa_id) is not int or pessoa_id <= 0:
         raise ValueError("Identificador da pessoa inválido.")

@@ -3,10 +3,10 @@ import hmac
 import secrets
 import sqlite3
 
-from database import conectar, registrar_log
-from common import ITERACOES, TAM_SENHA
-from estrutura_v110 import consultar_vinculos
-from permissoes import PERFIS, exigir_permissao_usuario
+from conn.database import conectar, registrar_log
+from common.common import ITERACOES, TAM_SENHA
+from bd_schemes.estrutura_v110 import consultar_vinculos
+from model.permissoes import PERFIS, exigir_permissao_usuario
 
 
 def gerar_hash(senha):

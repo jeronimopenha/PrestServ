@@ -5,7 +5,7 @@ Este módulo NÃO apaga nem desativa cadastros, NÃO escreve logs operacionais
 """
 
 import sqlite3
-from database import DB_PATH
+from conn.database import DB_PATH
 
 CAMINHO_BANCO = DB_PATH
 
@@ -46,7 +46,7 @@ def criar_estrutura_logs(conexao: sqlite3.Connection) -> None:
 
     if versao > 2:
         raise RuntimeError(f"Versão do esquema ({versao}) superior à suportada (2).")
-    
+
     with conexao:
         conexao.execute("""
             CREATE TABLE IF NOT EXISTS logs (

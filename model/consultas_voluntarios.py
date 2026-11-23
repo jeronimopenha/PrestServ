@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from database import conectar
-from permissoes import exigir_permissao_usuario
+from conn.database import conectar
+from model.permissoes import exigir_permissao_usuario
 
 
 def _validar_periodo(inicio, fim):
