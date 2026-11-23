@@ -445,17 +445,31 @@ def main():
         st.error("Perfil de usuário inválido.")
         return
 
-    area = st.sidebar.selectbox(
-        "Área",
-        options=list(menu),
-        key=f"navegacao_area_{perfil}",
-    )
+    if perfil == "porteiro":
+        # Navegação direta, sem seleção de área.
+        pagina = st.sidebar.radio(
+            "Navegação",
+            [
+                "Presenças",
+                "Presenças de voluntários",
+            ],
+            key="navegacao_porteiro",
+        )
 
-    pagina = st.sidebar.radio(
-        "Página",
-        options=menu[area],
-        key=f"navegacao_pagina_{perfil}_{area}",
-    )
+    else:
+        # Navegação organizada por áreas
+        # para os demais perfis.
+        area = st.sidebar.selectbox(
+            "Área",
+            options=list(menu),
+            key=f"navegacao_area_{perfil}",
+        )
+
+        pagina = st.sidebar.radio(
+            "Página",
+            options=menu[area],
+            key=f"navegacao_pagina_{perfil}_{area}",
+        )
 
     # Associação entre páginas e suas funções.
     telas = {
