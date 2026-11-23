@@ -2,7 +2,7 @@
 
 from datetime import date
 from conn.database import conectar, registrar_log, data_atual
-from model.permissoes import exigir_permissao_usuario, tem_permissao
+from security.permissoes import exigir_permissao_usuario, tem_permissao
 from io import BytesIO
 from PIL import Image, ImageOps, UnidentifiedImageError
 

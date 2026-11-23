@@ -13,14 +13,14 @@ import pandas as pd
 import streamlit as st
 
 from conn.database import conectar, data_atual, registrar_log
-from model.pdf_relatorios import gerar_pdf_entradas
+from services.pdf_relatorios import gerar_pdf_entradas
 from model.entradas import (
     atualizar_entrada,
     excluir_entrada,
     listar_entradas,
     registrar_entrada,
 )
-from model.permissoes import exigir_permissao_usuario
+from security.permissoes import exigir_permissao_usuario
 
 TIPOS = {"doacao": "Doação", "compra": "Compra"}
 

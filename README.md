@@ -15,6 +15,7 @@ Sistema web de apoio ao registro de atendimentos sociais, à organização de pe
 - Cinco perfis de acesso: superadministrador, administrador, secretaria, porteiro e consulta.
 - Relatórios, exportações CSV/PDF, registros de auditoria e cópias ZIP do banco.
 - Interface com temas claro e escuro, usando a configuração nativa do Streamlit.
+- Página interna de documentação com visualização e download de manuais por perfil.
 
 O detalhamento dos acessos consta na [visão geral](docs/visao_geral.md) e nos [manuais](docs/README.md).
 

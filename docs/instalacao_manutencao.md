@@ -12,49 +12,80 @@ O PrestServ utiliza **Python**, **Streamlit**, **SQLite**, **Pillow**, **pandas*
 
 A **V2.0.0 é candidata à publicação**. A documentação não confirma que o contêiner, o Nginx ou o banco de produção já tenham sido atualizados. Não inicie a V2 sobre um banco antigo sem executar e validar a migração.
 
-## 2. Componentes do projeto
+## 2. Organização do projeto
 
-Arquivos principais (lista de referência, não necessariamente exaustiva):
+A organização abaixo reflete a **reorganização de módulos confirmada pelo desenvolvedor** antes da publicação. Os caminhos devem ser conferidos no repositório definitivo caso outras alterações tenham sido feitas após essa reorganização.
 
 ```text
 PrestServ/
-├── app.py
-├── auth.py
-├── backup.py
-├── cadastros.py
-├── common.py
-├── consultas_relatorios.py
-├── consultas_voluntarios.py
-├── criar_admin.py
-├── database.py
-├── estrutura_v110.py
-├── estrutura_v200.py
-├── estrutura_voluntarios.py
-├── fotos.py
-├── inicializar_banco.py
-├── pdf_relatorios.py
-├── pdf_voluntarios.py
-├── certificados_voluntarios.py
-├── permissoes.py
-├── presencas.py
-├── relatorios.py
-├── tela_backups.py
-├── tela_logs.py
-├── tela_cadastros_voluntarios.py
-├── tela_presencas_voluntarios.py
-├── tela_relatorios_voluntarios.py
-├── voluntarios.py
+├── app.py                         # Entrada da aplicação Streamlit
+├── README.md
+├── LICENSE
 ├── requirements.txt
-├── .streamlit/config.toml
-├── docs/
-└── dados/
+├── .streamlit/
+│   └── config.toml                # Temas claro e escuro
+├── .vscode/
+│   └── launch.json                # Ambiente de desenvolvimento local
+├── bd_schemes/                   # Esquema e migrações SQLite
+│   ├── estrutura_v110.py
+│   ├── estrutura_v200.py
+│   ├── estrutura_entradas.py
+│   ├── estrutura_voluntarios.py
+│   └── inicializar_banco.py
+├── conn/
+│   └── database.py                # Conexões e acesso aos dados
+├── security/
+│   ├── auth.py                    # Autenticação e usuários
+│   └── permissoes.py              # Regras de autorização
+├── common/
+│   └── config.py                  # Constantes da aplicação
+├── model/                         # Regras de negócio e consultas
+│   ├── consultas_relatorios.py
+│   ├── consultas_voluntarios.py
+│   ├── entradas.py
+│   ├── fotos.py
+│   └── voluntarios.py
+├── services/                      # Backups e documentos gerados
+│   ├── backup.py
+│   ├── pdf_relatorios.py
+│   ├── pdf_voluntarios.py
+│   └── certificados_voluntarios.py
+├── telas/                         # Interface e navegação
+│   ├── tela_backups.py
+│   ├── tela_cadastros.py
+│   ├── tela_cadastros_voluntarios.py
+│   ├── tela_documentacao.py
+│   ├── tela_entradas.py
+│   ├── tela_logs.py
+│   ├── tela_presencas.py
+│   ├── tela_presencas_voluntarios.py
+│   ├── tela_relatorios.py
+│   └── tela_relatorios_voluntarios.py
+├── scripts/                       # Ferramentas administrativas
+│   ├── criar_admin.py
+│   └── migrar_prestserv_v200.py
+├── docs/                          # Documentação e PDFs distribuídos
+│   ├── README.md
+│   ├── visao_geral.md
+│   ├── manual_porteiro.md
+│   ├── manual_secretaria.md
+│   ├── manual_consulta.md
+│   ├── manual_administrador.md
+│   ├── instalacao_manutencao.md
+│   ├── manual_completo.md
+│   ├── estilo_pdf.tex
+│   └── gerar_manuais.sh
+└── dados/                         # Banco persistente; fora do Git
+    └── PrestServ.db
 ```
 
-Confirme os nomes dos módulos de entradas e os arquivos efetivamente presentes no repositório antes da distribuição. O banco, as fotografias armazenadas e os logs fazem parte do **SQLite**, não devem ser incluídos no Git. O diretório `dados/` deve permanecer persistente no servidor.
+As pastas Python usadas como pacotes podem conter arquivos `__init__.py` não representados na árvore. A pasta `dados/` e outros arquivos locais confidenciais **não devem ser versionados nem incluídos na imagem Docker**.
+
+A camada de acesso ao banco permanece centralizada em `conn/database.py`; reorganizar fisicamente os arquivos não altera, por si só, a lógica de autorização ou de migração. Os PDFs dos manuais devem acompanhar a implantação para que a página de documentação possa oferecê-los.
 
 ## 3. Caminho do banco e separação de ambientes
 
-A aplicação obtém o caminho do banco por meio da variável de ambiente **`PRESTSERV_DB_PATH`**, quando definida; caso contrário, utiliza o caminho padrão configurado em `database.py`, normalmente `dados/PrestServ.db`.
+A aplicação obtém o caminho do banco por meio da variável de ambiente **`PRESTSERV_DB_PATH`**, quando definida; caso contrário, utiliza o caminho padrão configurado em `conn/database.py`, normalmente `dados/PrestServ.db` na raiz do repositório.
 
 No Linux, maiúsculas e minúsculas no caminho importam. O nome **`prestserv.db`** dentro do ZIP de backup é uma convenção do arquivo compactado e não implica que o banco de produção tenha esse mesmo nome.
 
@@ -89,8 +120,8 @@ PRESTSERV_DB_PATH="$PWD/dados/PrestServ_dev.db" python -m streamlit run app.py
 Para uma instalação sem banco existente, configure o caminho correto e inicialize a estrutura pelo processo previsto no repositório:
 
 ```bash
-python inicializar_banco.py
-python criar_admin.py
+python -m bd_schemes.inicializar_banco
+python -m scripts.criar_admin
 ```
 
 A criação inicial deve configurar a conta **superadmin** e disponibilizar as tabelas do esquema V2, inclusive cadastros, atendimentos, serviços, quantidades, entradas, voluntários, presenças de voluntários, fotos e logs.
@@ -101,7 +132,7 @@ A criação inicial deve configurar a conta **superadmin** e disponibilizar as t
 
 A V2 trabalha com `PRAGMA user_version = 2` no SQLite. Esse número é a versão **do esquema do banco**, não a versão do software. Bancos de versões anteriores exigem migração controlada.
 
-O `inicializar_banco.py` da V2 foi preparado para **recusar a inicialização de um banco existente que não esteja no esquema esperado**. Essa proteção evita alterações implícitas em um banco antigo e não deve ser contornada alterando manualmente `PRAGMA user_version`.
+O `bd_schemes/inicializar_banco.py` da V2 foi preparado para **recusar a inicialização de um banco existente que não esteja no esquema esperado**. Essa proteção evita alterações implícitas em um banco antigo e não deve ser contornada alterando manualmente `PRAGMA user_version`.
 
 ### 6.1. Verificar a situação da produção (somente leitura)
 
@@ -115,17 +146,31 @@ PRAGMA foreign_key_check;
 
 Registre também as tabelas e colunas existentes. A produção pode estar na V1.0 ou em um estado intermediário da V1.1.0; **não presuma a origem sem inspecionar o arquivo efetivamente implantado**.
 
-### 6.2. Homologar em uma cópia isolada
+### 6.2. Migrar uma cópia isolada
 
-1. **Interrompa escritas** no momento de capturar o estado de produção. Gere um backup consistente usando o procedimento disponível na versão em funcionamento ou a API de backup do SQLite; não copie um banco em uso de maneira insegura.
-2. Preserve o arquivo original em armazenamento independente, com identificação e acesso restrito.
-3. Restaure essa cópia em diretório de testes, apontando `PRESTSERV_DB_PATH` somente para esse arquivo.
-4. Inspecione `user_version`, tabelas, campos e contagens de registros; confira a origem exata do banco.
-5. Execute os módulos/scripts **de migração aprovados para essa origem**. O código de migração deve preservar IDs, hashes de senha, serviços, pessoas, fotos, vínculos, datas, logs e demais registros existentes. Não se deve simplesmente criar um banco vazio V2 no lugar do original.
-6. Execute as verificações de integridade e compare contagens e registros de amostra antes e depois.
-7. Inicie a aplicação V2 apontada para a cópia migrada, teste os cinco perfis e as operações principais.
+O script `scripts/migrar_prestserv_v200.py` utiliza o mecanismo de cópia do SQLite para criar **outro arquivo de banco**, preservando o arquivo de origem. Ele não atualiza o banco original em seu lugar.
 
-**Bloqueio de publicação:** este conjunto documental não fornece um comando universal para migrar V1 -> V2. A migração específica depende do esquema e da origem reais. A passagem em produção só pode ocorrer depois de existir um procedimento testado de ponta a ponta sobre uma cópia fiel.
+Exemplo, **somente se o banco de origem indicado for de fato o arquivo V1 que se deseja migrar**:
+
+```bash
+python -m scripts.migrar_prestserv_v200 \
+  --origem dados/PrestServ.db \
+  --saida dados/PrestServ_v2_homologacao.db
+```
+
+O arquivo de destino **não pode existir** antes da execução. O script solicita o login de um administrador ativo, que passa a `superadmin` somente na cópia produzida. Depois, verifique `PRAGMA user_version = 2`, `integrity_check = ok`, ausência de violações de chaves estrangeiras e preservação das contagens dos registros antigos.
+
+Na preparação da V2.0.0, a migração V1 → V2 foi concluída com sucesso em uma cópia de homologação e o usuário confirmou sete testes funcionais na aplicação. **Esse resultado não substitui a migração final de uma cópia recém-obtida do banco efetivamente usado no servidor**, nem a verificação do código após a reorganização manual dos módulos.
+
+Para a migração final, durante a janela de manutenção:
+
+1. Impedir novas gravações na V1 e gerar um **backup consistente** da produção, de preferência preservando também a imagem/commit em uso.
+2. Identificar o banco real por sua montagem Docker/Portainer; verificar sua versão do esquema e integridade.
+3. Migrar o backup para um **novo arquivo**, no ambiente com o código da V2, sem substituir ainda o banco de origem.
+4. Conferir contagens, vínculos, usuários, fotos, serviços e amostras de atendimentos; validar o login da conta promovida.
+5. Somente depois das verificações, planejar a troca do arquivo persistente durante a parada do serviço, com possibilidade documentada de restauração do banco original.
+
+**Não** use comandos de inicialização para forçar um banco antigo a parecer V2, nem altere `PRAGMA user_version` manualmente. Se o esquema original diferir do homologado, interrompa a publicação e analise a divergência antes de continuar.
 
 ### 6.3. Critérios de aprovação
 
@@ -140,13 +185,13 @@ Registre também as tabelas e colunas existentes. A produção pode estar na V1.
 
 A aplicação possui cinco papéis: `superadmin`, `admin`, `secretaria`, `porteiro`, `consulta`. O superadmin administra usuários, logs e backup; o admin opera cadastros, correções e relatórios; secretaria opera cadastros e entradas; porteiro registra presenças somente do dia; consulta acessa apenas dados agregados.
 
-As permissões devem ser verificadas novamente nas funções que consultam ou alteram o banco, não apenas na visibilidade do menu. Testes de papéis não devem depender de um usuário autenticado por interface em produção.
+As permissões precisam ser verificadas na camada que fornece acesso aos dados, não apenas pela visibilidade do menu. A tela de documentação também revalida a conta ativa antes de ler ou disponibilizar cada PDF.
 
 ## 8. Backup e restauração
 
 ### 8.1. Backup
 
-O módulo `backup.py` prepara uma cópia consistente do SQLite e a inclui em um arquivo ZIP, com arquivo interno `prestserv.db`. Na V2, o backup contém as tabelas operacionais e também os dados de **voluntários, fotografias de voluntários e presenças de voluntários**.
+O módulo `services/backup.py` prepara uma cópia consistente do SQLite e a inclui em um arquivo ZIP, com arquivo interno `prestserv.db`. Na V2, o backup contém as tabelas operacionais e também os dados de **voluntários, fotografias de voluntários e presenças de voluntários**.
 
 A geração de backup completo pela interface é restrita ao **superadministrador**. Os ZIPs contêm dados pessoais, informações cadastrais e hashes de senha; devem ser guardados de maneira protegida, preferencialmente fora do servidor principal. Não os envie ao Git.
 
@@ -158,9 +203,13 @@ A restauração **substitui o conteúdo atual**: operações realizadas após o 
 
 Nos testes isolados da V2, foram validadas preservação de cadastros, fotos e presenças de voluntários, bloqueio para o perfil Consulta, auditoria de restauração e rejeição de backups incompletos. **Esses testes não substituem a homologação do banco real migrado.**
 
-## 9. Implantação com Docker e Nginx
+## 9. Implantação com Git, Portainer e Nginx
 
-A infraestrutura institucional mencionada utiliza contêiner Docker, acesso externo via Nginx e armazenamento persistente. Os nomes efetivos dos contêineres, serviços, volumes, diretórios e portas **precisam ser conferidos no servidor** antes de qualquer execução.
+A instalação de produção existente utiliza um repositório Git no servidor e é gerenciada pelo **Portainer**, com aplicação em Docker e acesso via Nginx. **Não é necessário criar uma implantação paralela ou substituir a organização atual por um Compose novo**. Os detalhes do stack/contêiner ainda precisam ser confirmados no Portainer.
+
+A publicação deverá partir de um commit aprovado, preferencialmente em um branch de release específico, por exemplo `release/v2.0.0`. No servidor, a troca do branch via Git atualiza os arquivos do repositório, mas **não atualiza por si só uma imagem Docker existente**; o mecanismo de build/redeploy depende de como a instalação atual monta ou constrói o código. A versão V1 deve permanecer recuperável.
+
+Antes de executar comandos de implantação, confira no Portainer: imagem ou build, volumes/bind mounts (principalmente o SQLite), variáveis de ambiente, rede, portas, política de reinício e relação com o Nginx. Nunca migre ou sobrescreva o banco enquanto houver escrita concorrente.
 
 Fluxo seguro:
 
@@ -177,7 +226,13 @@ Fluxo seguro:
 
 Não incluímos comandos `docker rm`, `docker volume rm`, `docker compose down -v` nem caminhos de produção não confirmados, pois eles podem causar perda de dados.
 
-## 10. Temas e identidade visual
+## 10. Documentação na aplicação e temas
+
+A tela `telas/tela_documentacao.py` foi acrescentada durante a preparação da versão para disponibilizar os PDFs da pasta `docs/` conforme as permissões de cada perfil. O `app.py` integra essa tela à navegação; a leitura e o download precisam respeitar o perfil ativo e a revalidação da conta no SQLite. O componente `st.pdf` exige a dependência opcional de PDF do Streamlit, registrada no `requirements.txt` como `streamlit[pdf]`.
+
+Confirme que os arquivos PDF estão presentes na imagem ou no diretório disponibilizado ao contêiner. Regenerar os arquivos Markdown não atualiza automaticamente os PDFs sem executar `bash docs/gerar_manuais.sh`.
+
+### Temas e identidade visual
 
 Os temas claro e escuro são configurados em `.streamlit/config.toml` pelas seções `[theme]`, `[theme.light]` e `[theme.dark]`. A aplicação conserva tipografia e tamanhos dos títulos e indicadores; o usuário pode selecionar tema claro, escuro ou do sistema no menu do Streamlit.
 
@@ -221,7 +276,7 @@ O `.gitignore` não remove dados já incluídos em commits anteriores. Revise o 
 
 **Erro de versão do esquema:** o banco é antigo ou incompatível; não altere `user_version` manualmente. Verifique o procedimento de migração.
 
-**Banco não encontrado:** confira `PRESTSERV_DB_PATH`, o nome do arquivo (inclusive maiúsculas/minúsculas) e a montagem do volume.
+**Banco não encontrado:** confira `PRESTSERV_DB_PATH` e `conn/database.py`, o nome do arquivo (inclusive maiúsculas/minúsculas) e a montagem do volume.
 
 **`database is locked`:** verifique acessos concorrentes, transações longas e operações de backup/restauração. Não sobrescreva o SQLite enquanto está em uso.
 

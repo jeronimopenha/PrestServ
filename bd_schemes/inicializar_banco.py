@@ -3,7 +3,7 @@ import sqlite3
 from conn.database import DB_PATH
 from bd_schemes.estrutura_v110 import criar_estrutura_logs
 from bd_schemes.estrutura_v200 import migrar_usuarios_v200
-from model.estrutura_entradas import criar_estrutura_entradas
+from bd_schemes.estrutura_entradas import criar_estrutura_entradas
 from bd_schemes.estrutura_voluntarios import criar_estrutura_voluntarios
 
 

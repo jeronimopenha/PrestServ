@@ -1,7 +1,7 @@
 import pandas as pd
 from conn.database import conectar, _tem_coluna_quantidade_servico
 from datetime import date
-from model.permissoes import exigir_permissao_usuario
+from security.permissoes import exigir_permissao_usuario
 
 
 def presencas_detalhadas(inicio, fim, pessoa_id=None, ator_id=None):

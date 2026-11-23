@@ -5,7 +5,7 @@ from datetime import date
 import streamlit as st
 
 from conn.database import conectar, data_atual
-from model.permissoes import exigir_permissao_usuario, tem_permissao
+from security.permissoes import exigir_permissao_usuario, tem_permissao
 from model.voluntarios import (
     listar_voluntarios,
     buscar_foto_voluntario,

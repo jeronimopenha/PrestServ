@@ -4,9 +4,9 @@ import secrets
 import sqlite3
 
 from conn.database import conectar, registrar_log
-from common.common import ITERACOES, TAM_SENHA
+from common.config import ITERACOES, TAM_SENHA
 from bd_schemes.estrutura_v110 import consultar_vinculos
-from model.permissoes import PERFIS, exigir_permissao_usuario
+from security.permissoes import PERFIS, exigir_permissao_usuario
 
 
 def gerar_hash(senha):

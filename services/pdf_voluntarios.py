@@ -17,9 +17,9 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from common.common import BASIC_TITTLE, VERSAO, ANO
+from common.config import BASIC_TITTLE, VERSAO, ANO
 from conn.database import conectar
-from model.permissoes import exigir_permissao_usuario
+from security.permissoes import exigir_permissao_usuario
 from model.consultas_voluntarios import (
     ranking_voluntarios,
     relatorio_cadastros_voluntarios,

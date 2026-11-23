@@ -3,7 +3,7 @@ from contextlib import closing
 from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED, BadZipFile
 from conn.database import conectar, DB_PATH, registrar_log
-from model.permissoes import exigir_permissao_usuario
+from security.permissoes import exigir_permissao_usuario
 
 # Limite de proteção contra arquivos excessivamente grandes.
 # Ajustar caso o banco ultrapasse 512 MB.

@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 import math
 
 from conn.database import conectar, data_atual, registrar_log
-from model.permissoes import exigir_permissao_usuario
+from security.permissoes import exigir_permissao_usuario
 
 
 _CAMPOS = (

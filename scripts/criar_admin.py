@@ -1,7 +1,7 @@
 import getpass
 import sqlite3
 
-from conn.auth import criar_usuario, TAM_SENHA
+from security.auth import criar_usuario, TAM_SENHA
 from conn.database import conectar
 
 

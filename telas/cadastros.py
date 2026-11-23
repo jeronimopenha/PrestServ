@@ -15,7 +15,7 @@ from conn.database import (
 
 from bd_schemes.estrutura_v110 import consultar_vinculos
 from model.fotos import converter_para_jpeg
-from model.permissoes import exigir_permissao_usuario, tem_permissao
+from security.permissoes import exigir_permissao_usuario, tem_permissao
 
 
 def campo_texto(valor):

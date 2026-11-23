@@ -3,7 +3,7 @@
 from datetime import date
 
 from conn.database import conectar
-from model.permissoes import exigir_permissao_usuario
+from security.permissoes import exigir_permissao_usuario
 
 
 def _validar_periodo(inicio, fim):

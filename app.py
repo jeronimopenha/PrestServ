@@ -1,7 +1,7 @@
 import sqlite3
 import streamlit as st
 
-from conn.auth import (
+from security.auth import (
     autenticar,
     criar_usuario,
     listar_usuarios,
@@ -11,9 +11,9 @@ from conn.auth import (
     excluir_usuario,
 )
 from conn.database import conectar, registrar_log
-from model.presencas import tela_presencas
-from model.cadastros import tela_cadastros
-from model.relatorios import tela_relatorios
+from telas.presencas import tela_presencas
+from telas.cadastros import tela_cadastros
+from telas.relatorios import tela_relatorios
 from bd_schemes.inicializar_banco import inicializar_banco
 from telas.tela_backups import tela_backups
 from bd_schemes.estrutura_v110 import consultar_vinculos
@@ -23,8 +23,8 @@ from telas.tela_cadastros_voluntarios import tela_cadastros_voluntarios
 from telas.tela_presencas_voluntarios import tela_presencas_voluntarios
 from telas.tela_relatorios_voluntarios import tela_relatorios_voluntarios
 from telas.tela_documentacao import tela_documentacao
-from model.permissoes import PERFIS, tem_permissao
-from common.common import BASIC_TITTLE, VERSAO, ANO
+from security.permissoes import PERFIS, tem_permissao
+from common.config import BASIC_TITTLE, VERSAO, ANO
 
 st.set_page_config(page_title=BASIC_TITTLE, page_icon="🏠", layout="centered")
 

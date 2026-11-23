@@ -10,7 +10,7 @@ lang: pt-BR
 
 1. Abra o endereço do PrestServ informado pela instituição em computador ou celular autorizado.
 2. Entre com seu **login** e **senha** pessoais.
-3. Na barra lateral, utilize um dos dois links: **Presenças** ou **Presenças de voluntários**.
+3. Na barra lateral, utilize **Presenças** ou **Presenças de voluntários**. A opção **Documentação** permite consultar os manuais disponíveis para seu perfil.
 4. Ao terminar o turno, clique em **Sair**.
 
 Não compartilhe credenciais. O recarregamento da página pode exigir nova autenticação; um registro efetivamente salvo permanece no banco.

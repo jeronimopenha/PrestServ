@@ -18,8 +18,8 @@ from model.consultas_relatorios import (
     pessoas_ausentes,
     qualidade_cadastros,
 )
-from model.pdf_relatorios import gerar_pdf
-from model.permissoes import exigir_permissao_usuario
+from services.pdf_relatorios import gerar_pdf
+from security.permissoes import exigir_permissao_usuario
 
 COLUNAS_RELATORIO = {
     "id": "ID",

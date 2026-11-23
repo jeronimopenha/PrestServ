@@ -3,7 +3,7 @@
 **Desenvolvimento:** Jeronimo Costa Penha  
 **Situação:** documentação da V2.0.0 candidata à publicação; a atualização da produção requer validação de migração e testes na infraestrutura real.
 
-A documentação atende aos cinco perfis do PrestServ, além do responsável pela implantação e manutenção.
+A documentação atende aos cinco perfis do PrestServ e ao responsável pela implantação e manutenção. O mapa técnico de arquivos foi atualizado após a reorganização em `security/`, `services/`, `scripts/` e `telas/`.
 
 | Arquivo | Público | Conteúdo |
 |:--|:--|:--|
@@ -20,6 +20,10 @@ A documentação atende aos cinco perfis do PrestServ, além do responsável pel
 A V2 introduz cinco perfis, restrição de datas por função, quantidades de serviços, novos campos nos cadastros e controles relacionados a refeições no local, lançamento de entradas, módulo completo de voluntariado, estatísticas e certificados, além dos temas claro e escuro.
 
 **Atenção aos limites:** os logs não são imutáveis, o SQLite não possui criptografia nativa no arquivo, os backups ZIP contêm dados sensíveis e as permissões do aplicativo não substituem os controles de acesso ao servidor.
+
+## Consultar os manuais dentro do PrestServ
+
+A V2.0.0 inclui a página **Documentação** dentro da aplicação, com visualização e download dos PDFs permitidos para cada perfil. O administrador técnico deve garantir que a pasta `docs/` (inclusive os PDFs) esteja disponível na implantação e que as permissões sejam verificadas também antes de ler cada arquivo.
 
 ## Gerar os manuais em PDF
 
