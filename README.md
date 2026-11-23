@@ -1,25 +1,35 @@
 # PrestServ
 
-Sistema web para registro e acompanhamento dos atendimentos realizados por uma instituição de assistência social.
+Sistema web de apoio ao registro de atendimentos sociais, à organização de pessoas atendidas e voluntários e ao acompanhamento de serviços, entradas e resultados.
 
-O PrestServ permite cadastrar pessoas, associar serviços a atendimentos diários e consultar relatórios. Possui dois perfis de acesso: **administrador** e **porteiro**.
+**Versão em preparação:** 2.0.0  
+**Versão em produção:** verificar a instalação institucional antes de atualizar.  
+**Desenvolvimento:** Jeronimo Costa Penha.
 
-## Recursos principais
+## O que a versão 2.0.0 oferece
 
-- Cadastro de pessoas, contatos e fotografias.
-- Registro de uma presença por pessoa e data, com um ou mais serviços.
-- Relatórios de frequência, serviços, histórico, ausências e cadastros; exportação em CSV e PDF.
-- Administração de usuários e permissões.
-- Backup e restauração por arquivo ZIP.
-- **V1.1.0:** auditoria de operações, consulta e limpeza de logs, exclusão condicionada de cadastros e migração automática do esquema do banco.
+- Registro de presenças por pessoa e data, com serviços e quantidades.
+- Cadastro de pessoas atendidas, fotos, contatos, endereço, observações e situação ativa/inativa.
+- Controle de entradas, incluindo doações e compras.
+- Cadastro e presença diária de voluntários, estatísticas, relatórios e certificados.
+- Cinco perfis de acesso: superadministrador, administrador, secretaria, porteiro e consulta.
+- Relatórios, exportações CSV/PDF, registros de auditoria e cópias ZIP do banco.
+- Interface com temas claro e escuro, usando a configuração nativa do Streamlit.
 
-## Documentação
+O detalhamento dos acessos consta na [visão geral](docs/visao_geral.md) e nos [manuais](docs/README.md).
 
-Consulte a [documentação do PrestServ](docs/README.md) para os manuais do porteiro, do administrador e de instalação/manutenção.
+## Instalação, documentação e publicação
 
-## Versões
+Acesse [docs/README.md](docs/README.md) para os manuais operacionais, a documentação técnica e a geração dos PDFs.
 
-- **V1.0:** primeira versão publicada.
-- **V1.1.0:** atualização preparada na branch de desenvolvimento, ainda sujeita à publicação em produção.
+**Importante:** a V2.0.0 ainda depende da validação final de migração e implantação. Não utilize uma cópia de banco V1 diretamente com a aplicação V2 sem realizar o procedimento de migração controlada documentado.
+
+O banco SQLite, fotografias, backups, segredos e arquivos com dados pessoais não devem ser publicados no Git.
+
+## Histórico de versões
+
+- **V1.0:** primeira publicação institucional.
+- **V1.1.0:** ciclo de evolução de auditoria, exclusões condicionadas e documentação; confirme se foi implantada no ambiente em uso.
+- **V2.0.0:** versão em preparação, com novos perfis, quantidades, entradas, voluntários, melhorias operacionais, relatórios e temas.
 
 **Desenvolvido por Jeronimo Costa Penha.**

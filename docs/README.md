@@ -1,44 +1,50 @@
-# Documentação do PrestServ — V1.1.0
+# Documentação do PrestServ 2.0.0
 
 **Desenvolvimento:** Jeronimo Costa Penha  
-**Estado:** documentação da versão preparada para publicação; a instalação de produção pode permanecer na V1.0 até a implantação.
+**Situação:** documentação da V2.0.0 candidata à publicação; a atualização da produção requer validação de migração e testes na infraestrutura real.
 
-O PrestServ registra pessoas e atendimentos sociais. Esta pasta contém os documentos de operação, administração e manutenção.
+A documentação atende aos cinco perfis do PrestServ, além do responsável pela implantação e manutenção.
 
-| Arquivo | Público | Finalidade |
+| Arquivo | Público | Conteúdo |
 |:--|:--|:--|
-| [visao_geral.md](visao_geral.md) | Todos | Objetivos, conceitos, perfis e funcionamento. |
-| [manual_porteiro.md](manual_porteiro.md) | Porteiro | Registrar e corrigir atendimentos. |
-| [manual_administrador.md](manual_administrador.md) | Administradores | Pessoas, usuários, relatórios, logs, backup e privacidade. |
-| [instalacao_manutencao.md](instalacao_manutencao.md) | Responsável técnico | Instalação, SQLite, migração, testes e implantação. |
-| [manual_completo.md](manual_completo.md) | Todos | Reunião dos quatro documentos acima. |
+| [visao_geral.md](visao_geral.md) | Todos | Conceitos, recursos, privacidade e perfis da V2. |
+| [manual_porteiro.md](manual_porteiro.md) | Porteiro | Presenças de pessoas e voluntários na data atual. |
+| [manual_secretaria.md](manual_secretaria.md) | Secretaria | Cadastros de pessoas e voluntários, entradas e situação cadastral. |
+| [manual_consulta.md](manual_consulta.md) | Consulta | Relatórios e estatísticas agregadas, sem identificação de pessoas. |
+| [manual_administrador.md](manual_administrador.md) | Admin e superadmin | Gestão operacional, relatórios, voluntários e recursos exclusivos do superadmin. |
+| [instalacao_manutencao.md](instalacao_manutencao.md) | Responsável técnico | Instalação, permissões, backup, migração, Docker/Nginx e checklist de liberação. |
+| [manual_completo.md](manual_completo.md) | Todos | Versão consolidada dos documentos acima, gerada pelo script. |
 
-## Principais mudanças da V1.1.0
+## Principais mudanças da V2.0.0
 
-- Auditoria de acessos e operações, com consulta por filtros e visualização dos detalhes.
-- Exclusão de logs selecionados, mediante confirmação e registro da limpeza.
-- Exclusão de pessoas e usuários condicionada aos vínculos, com proteções administrativas.
-- Migração automática para o esquema SQLite `user_version = 1`.
-- Melhorias de apresentação dos relatórios PDF e compatibilidade dos componentes Streamlit.
+A V2 introduz cinco perfis, restrição de datas por função, quantidades de serviços, novos campos nos cadastros e controles relacionados a refeições no local, lançamento de entradas, módulo completo de voluntariado, estatísticas e certificados, além dos temas claro e escuro.
 
-O histórico de auditoria **não é imutável**: administradores autorizados podem remover registros. A restauração substitui o banco atual e pode perder alterações posteriores ao backup escolhido.
+**Atenção aos limites:** os logs não são imutáveis, o SQLite não possui criptografia nativa no arquivo, os backups ZIP contêm dados sensíveis e as permissões do aplicativo não substituem os controles de acesso ao servidor.
 
-## Atualizar o manual completo e gerar os PDFs
+## Gerar os manuais em PDF
 
-O arquivo `manual_completo.md` é **gerado automaticamente** a partir dos manuais individuais por `gerar_manuais.sh`. Edite os manuais individuais primeiro e execute o script na pasta `docs/`:
+Na pasta `docs/`, execute:
 
 ```bash
 bash gerar_manuais.sh
 ```
 
-O script utiliza **Pandoc**, **XeLaTeX**, **Python 3**, o suporte a português brasileiro do TeX Live e `estilo_pdf.tex`. Gera os PDFs dos quatro manuais individuais e do manual completo, sempre com a autoria no rodapé.
+O script recompõe `manual_completo.md` a partir dos manuais individuais e gera os PDFs com **Pandoc + XeLaTeX**, em escala de cinza e com a autoria no rodapé.
 
-Se desejar apenas regenerar `manual_completo.md`, execute o script com a opção `--somente-md`:
+Para atualizar somente o Markdown consolidado:
 
 ```bash
 bash gerar_manuais.sh --somente-md
 ```
 
-## Cuidados com a publicação
+O script requer Python 3. Para gerar PDFs, também são necessários Pandoc, XeLaTeX e o pacote LaTeX de português brasileiro. Os arquivos `.md` são as fontes editáveis; **não edite manualmente `manual_completo.md`**, pois ele é gerado.
 
-Não versionar o banco SQLite, backups, arquivos contendo dados pessoais ou segredos. Antes de atualizar a produção, fazer backup, validar a imagem Docker e revisar as instruções de manutenção.
+## Procedimento para publicar
+
+1. Revisar os manuais e os caminhos/configurações efetivamente usados na implantação.
+2. Gerar backup validado da produção, copiar o banco para um ambiente isolado e realizar a migração controlada.
+3. Confirmar integridade do banco migrado e executar o conjunto de testes da V2 em homologação.
+4. Testar a imagem Docker, os volumes persistentes, o proxy Nginx e o login dos cinco perfis.
+5. Somente após os testes, realizar atualização programada e, posteriormente, etiquetar/publicar a versão conforme o fluxo de entrega adotado.
+
+A documentação não constitui prova de que a produção já tenha sido atualizada.

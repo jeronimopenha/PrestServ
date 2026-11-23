@@ -1,74 +1,69 @@
 ---
 title: "Apresentação do PrestServ"
-subtitle: "Finalidade: registro e acompanhamento de atendimentos sociais"
+subtitle: "Visão geral da versão 2.0.0"
 author: "Jeronimo Costa Penha"
 date: "Novembro de 2026"
 lang: pt-BR
 ---
 
+## 1. Finalidade do sistema
 
-## 1. O que é o PrestServ
+O **PrestServ** é uma aplicação web para auxiliar uma instituição de assistência social no registro de pessoas atendidas, serviços oferecidos, recebimento de entradas (doações e compras), participação de voluntários e elaboração de relatórios. Foi concebido para uma operação diária simples, com níveis de acesso adequados às responsabilidades de cada colaborador.
 
-O **PrestServ** é uma aplicação de apoio ao registro de atendimentos de uma instituição de assistência social. Ela permite identificar as pessoas cadastradas, registrar os serviços recebidos em determinada data e consultar informações consolidadas sobre os atendimentos realizados.
+O sistema utiliza Python e Streamlit, com armazenamento em SQLite. O acesso é realizado por navegador, em computador ou celular, conforme a infraestrutura disponibilizada pela instituição.
 
-O sistema foi concebido para uma operação simples, com poucos usuários, evitando burocracia desnecessária durante o atendimento.
+## 2. Pessoas atendidas e serviços
 
-**Exemplos de serviços:** jantar, banho e roupas. Os serviços efetivamente disponíveis dependem do cadastro de serviços do banco de dados.
+Cada pessoa possui cadastro próprio, com nome obrigatório, informações de contato e identificação quando disponíveis, endereço, observações, situação ativa/inativa e fotografia opcional. O cadastro pode registrar a autorização para **refeição no local**, respeitando os controles definidos pela aplicação.
 
-## 2. O que o sistema registra
+Cada pessoa pode ter **uma presença por dia**. Uma presença admite vários serviços, como jantar, banho e roupas. Na V2, o mesmo serviço pode ter uma **quantidade registrada**, quando aplicável. A quantidade de itens ou serviços distribuídos não deve ser confundida com o número de presenças.
 
-- **Pessoas:** identificação, documento (quando informado), telefones, contato de referência, situação ativa/inativa e fotografia opcional.
-- **Atendimentos:** pessoa, data do atendimento e serviços recebidos.
-- **Usuários:** nome, login, perfil, situação ativa/inativa e senha armazenada em forma de hash.
-- **Relatórios:** indicadores, frequência, serviços prestados e histórico de atendimentos.
-- **Auditoria (V1.1.0):** data e hora das operações, identificação do operador, ação, resultado e detalhes quando disponíveis.
+O registro sem nenhum serviço não é mantido como presença. Pessoas inativas permanecem no histórico, mas não devem ser usadas para novos atendimentos sem reativação autorizada.
 
-Uma pessoa pode receber vários serviços no mesmo dia, mas terá **uma única presença por data**. Por exemplo, jantar e banho no mesmo dia correspondem a uma presença e dois serviços. Um atendimento sem serviços selecionados não é mantido no banco.
+## 3. Voluntariado
 
-## 3. Perfis de acesso
+O módulo de voluntários registra nome, telefone opcional, fotografia e situação ativa/inativa. O controle de presença considera **um comparecimento por voluntário e por data**, sem contabilizar horas trabalhadas ou atividades específicas.
 
-| Perfil | Atividades principais |
+Os responsáveis podem consultar cadastros, corrigir registros conforme o perfil, acompanhar o total de dias e emitir relatórios. O ranking considera dias únicos de presença; empates recebem a mesma posição e a numeração é **densa** (por exemplo, 1, 1, 2, 3). Certificados são gerados para quem alcançar as três primeiras posições distintas, inclusive em caso de empate. Um voluntário inativo com histórico pode participar do ranking.
+
+Os certificados são gerados em PDF, em formato A4 paisagem, com espaço para assinatura e sem declaração de horas de trabalho.
+
+## 4. Entradas
+
+A área de **Entradas** permite registrar movimentações de recebimento, incluindo doações e compras, conforme os campos disponíveis na tela. Esse controle é administrativo e distinto do lançamento de serviços prestados em uma presença.
+
+## 5. Perfis de acesso
+
+| Perfil | Responsabilidades principais |
 |:--|:--|
-| **Porteiro** | Localizar pessoa cadastrada, conferir identificação e registrar ou corrigir serviços na data selecionada. |
-| **Administrador** | Todas as atividades do porteiro, além de cadastro de pessoas, gestão de usuários, relatórios, consulta de logs, backup e restauração. |
+| **Superadministrador** | Todos os recursos autorizados: cadastros, atendimentos, voluntariado, relatórios, administração de usuários, logs, backup e restauração. |
+| **Administrador** | Operação e correção de datas, cadastros, entradas, relatórios e gestão operacional de voluntários; sem acesso às funções exclusivas do superadministrador. |
+| **Secretaria** | Cadastros de pessoas, entradas e cadastro de voluntários; não registra presenças de voluntários. |
+| **Porteiro** | Registra e corrige presenças de pessoas e voluntários na data atual; visualiza apenas os dados necessários à identificação. |
+| **Consulta** | Visualiza relatórios e estatísticas agregadas autorizadas, sem acesso aos nomes e dados pessoais de voluntários ou pessoas atendidas. |
 
-A aplicação não disponibiliza cadastro público de pessoas nem acesso anônimo ao histórico.
+Os perfis são verificados pela aplicação e pelas operações de acesso ao banco. O menu exibe somente páginas disponíveis ao usuário.
 
-## 4. Como o sistema funciona
+## 6. Navegação e apresentação
 
-1. O administrador cria o cadastro inicial da pessoa, preferencialmente com fotografia.
-2. O porteiro seleciona a data e localiza a pessoa na lista pesquisável.
-3. O porteiro confere os dados e marca os serviços recebidos.
-4. Ao salvar, o sistema registra ou atualiza a presença daquela pessoa naquela data.
-5. O administrador acompanha os resultados nos relatórios e pode exportá-los.
+Para administradores, as páginas são agrupadas em áreas como **Atendimentos**, **Voluntários** e, quando permitido, **Administração**. O porteiro utiliza uma navegação direta com apenas **Presenças** e **Presenças de voluntários**.
 
-Caso uma pessoa ainda não esteja cadastrada, o procedimento operacional previsto é anotar o atendimento para posterior cadastro pelo administrador. O porteiro não deve usar o cadastro de outra pessoa para registrar esse atendimento.
+O Streamlit permite selecionar tema **claro**, **escuro** ou **do sistema** no menu de configurações do navegador. A escolha afeta a interface, não o aspecto institucional dos relatórios PDF.
 
-## 5. Conceitos dos relatórios
+## 7. Relatórios e proteção dos dados
 
-| Indicador | Significado |
-|:--|:--|
-| **Pessoas distintas** | Número de pessoas diferentes com presença no período. |
-| **Presenças** | Número de combinações pessoa + data registradas. |
-| **Serviços prestados** | Soma das associações entre presenças e serviços. |
-| **Dias com registros** | Datas em que existe ao menos uma presença. |
-| **Média por dia registrado** | Presenças divididas pelos dias com registros; não necessariamente dias de funcionamento. |
+Os relatórios de atendimentos apresentam indicadores, serviços, frequência e histórico conforme a autorização. Os relatórios de voluntários incluem classificação, cadastros e histórico individual para perfis autorizados; o perfil Consulta recebe somente estatísticas agregadas.
 
-**Atenção:** não se deve interpretar ausência de registros em uma data como prova de que a instituição funcionou naquele dia e não recebeu ninguém.
+As exportações em CSV e PDF podem conter dados pessoais e exigem armazenamento e compartilhamento responsáveis. Os PDFs institucionais utilizam tons de cinza, e os gráficos podem utilizar cores quando pertinente.
 
-## 6. Limites e boas práticas
+As operações relevantes são registradas em logs, mas o histórico **não é imutável**. O SQLite padrão não cifra o arquivo do banco; a segurança depende também do sistema operacional, da rede, dos backups e do controle de acesso aos arquivos.
 
-O PrestServ é um instrumento administrativo, e não substitui políticas institucionais de proteção de dados, procedimentos de acolhimento ou registros obrigatórios de outras áreas. Fotografias, contatos e históricos são dados pessoais: devem ser visualizados apenas por pessoas autorizadas.
+## 8. Publicação e limites
 
-O banco SQLite padrão não exige senha para abrir o arquivo diretamente. Por isso, a proteção do computador, as permissões de acesso ao arquivo e o armazenamento seguro de backups são fundamentais.
+A versão 2.0.0 está **em preparação para implantação**. Antes da atualização da produção, é necessário validar a migração do banco existente em uma cópia isolada, verificar integridade e permissões, testar a implantação e manter uma cópia de segurança recuperável.
 
-## 7. Auditoria e exclusão (V1.1.0)
+O PrestServ é uma ferramenta administrativa: não substitui os procedimentos de acolhimento, políticas institucionais de proteção de dados ou documentos legalmente exigíveis.
 
-As operações relevantes são registradas para facilitar a identificação de alterações. Somente administradores podem consultar e excluir logs pela interface. A exclusão de pessoas e usuários é condicionada aos vínculos existentes; quando um cadastro possui histórico associado, a desativação permite preservá-lo.
+## 9. Créditos
 
-**Limite importante:** logs podem ser excluídos por administradores e não constituem trilha de auditoria imutável. Um backup restaurado não preserva automaticamente operações realizadas após a criação desse backup.
-
-## 8. Créditos
-
-**Desenvolvido por Jeronimo Costa Penha.**  
-PrestServ - documentação da versão 1.1.0.
+**Desenvolvido por Jeronimo Costa Penha.**
